@@ -10,6 +10,7 @@ import { unitLabel, KIND_LABEL } from '../lib/stays';
 import { downloadFile, tripToICS } from '../lib/ics';
 import { tripSummaryText } from '../lib/trips';
 import { CostTable, Ext, Sheet, SmartImage } from './ui';
+import { IS_ARTIFACT } from '../lib/env';
 
 interface Props {
   trips: Trip[];
@@ -33,8 +34,19 @@ export function SavedTrips({ trips, onUpdate, onDelete, onEdit, onDuplicate, onI
     return pa - pb || a.startDate.localeCompare(b.startDate);
   });
 
-  const exportAll = () => {
-    downloadFile(`trip-booker-backup-${today}.json`, JSON.stringify(trips, null, 2), 'application/json');
+  const exportAll = async () => {
+    const json = JSON.stringify(trips, null, 2);
+    if (IS_ARTIFACT) {
+      // Downloads are blocked here, so the backup goes on the clipboard instead.
+      try {
+        await navigator.clipboard.writeText(json);
+        toast('Backup copied — paste it into Notes or an email to keep it');
+      } catch {
+        toast('Couldn’t copy the backup on this device');
+      }
+      return;
+    }
+    downloadFile(`trip-booker-backup-${today}.json`, json, 'application/json');
     toast('Backup downloaded');
   };
 
@@ -61,7 +73,7 @@ export function SavedTrips({ trips, onUpdate, onDelete, onEdit, onDuplicate, onI
         </div>
         <div className="row">
           <button className="btn small" type="button" onClick={exportAll} disabled={!trips.length}>
-            ⬇️ Backup
+            {IS_ARTIFACT ? '📋 Copy backup' : '⬇️ Backup'}
           </button>
           <button className="btn small" type="button" onClick={() => fileRef.current?.click()}>
             ⬆️ Restore
@@ -102,10 +114,8 @@ export function SavedTrips({ trips, onUpdate, onDelete, onEdit, onDuplicate, onI
           onClose={() => setOpenId(null)}
           onUpdate={onUpdate}
           onDelete={() => {
-            if (confirm(`Delete “${open.name}”?`)) {
-              onDelete(open.id);
-              setOpenId(null);
-            }
+            onDelete(open.id);
+            setOpenId(null);
           }}
           onEdit={() => {
             setOpenId(null);
@@ -184,19 +194,24 @@ function TripDetail({
   const dest = destById(trip.destId);
   const img = useDestinationImage(dest);
   const people = trip.travellers.adults + trip.travellers.children;
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const setBooked = (k: keyof Trip['booked'], v: boolean) => onUpdate({ ...trip, booked: { ...trip.booked, [k]: v }, updatedAt: new Date().toISOString() });
 
   const share = async () => {
     const text = tripSummaryText(trip);
-    try {
-      if (navigator.share) {
+    if (navigator.share && !IS_ARTIFACT) {
+      try {
         await navigator.share({ title: trip.name, text });
         return;
+      } catch (e) {
+        if ((e as Error)?.name === 'AbortError') return; // user closed the share sheet
       }
+    }
+    try {
       await navigator.clipboard.writeText(text);
       toast('Trip details copied — paste them into the group chat');
     } catch {
-      /* user cancelled share sheet */
+      toast('Couldn’t copy on this device');
     }
   };
 
@@ -379,20 +394,30 @@ function TripDetail({
         <button className="btn" type="button" onClick={onEdit}>
           ✏️ Edit in planner
         </button>
-        <button className="btn" type="button" onClick={() => downloadFile(`${trip.name}.ics`, tripToICS(trip), 'text/calendar')}>
-          📅 Add to calendar
-        </button>
+        {!IS_ARTIFACT && (
+          <button className="btn" type="button" onClick={() => downloadFile(`${trip.name}.ics`, tripToICS(trip), 'text/calendar')}>
+            📅 Add to calendar
+          </button>
+        )}
         <button className="btn" type="button" onClick={onDuplicate}>
           ⧉ Duplicate
         </button>
-        <button className="btn" type="button" onClick={() => window.print()}>
-          🖨️ Print / PDF
-        </button>
+        {!IS_ARTIFACT && (
+          <button className="btn" type="button" onClick={() => window.print()}>
+            🖨️ Print / PDF
+          </button>
+        )}
         <Ext href={googleFlightsLink(trip.origin, dest, trip.startDate, addDays(trip.startDate, trip.nights), trip.travellers)} className="btn">
           Re-check flights
         </Ext>
-        <button className="btn" type="button" style={{ color: 'var(--bad)' }} onClick={onDelete}>
-          🗑️ Delete
+        <button
+          className="btn"
+          type="button"
+          style={confirmDelete ? { background: 'var(--bad)', borderColor: 'var(--bad)', color: '#fff' } : { color: 'var(--bad)' }}
+          onClick={() => (confirmDelete ? onDelete() : setConfirmDelete(true))}
+          onBlur={() => setConfirmDelete(false)}
+        >
+          {confirmDelete ? 'Tap again to delete' : '🗑️ Delete'}
         </button>
       </div>
     </Sheet>
