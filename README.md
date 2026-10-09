@@ -51,6 +51,9 @@ npm test         # parser + planner tests
 npm run build    # static site in dist/
 ```
 
+## Hosting on Netlify
+`netlify.toml` has the build settings. One-off setup: in Netlify choose **Add new site → Import an existing project → GitHub → TripPlanner**, keep the branch as `main`, and deploy. Every push to `main` then redeploys automatically.
+
 ## Hosting (GitHub Pages)
 `.github/workflows/deploy.yml` tests, builds and deploys to GitHub Pages on every push to `main`. One-off setup: repo **Settings → Pages → Source: GitHub Actions**. The app will then be at `https://<user>.github.io/<repo>/`.
 
