@@ -8,7 +8,9 @@ import { listingImage, useDestinationImage } from '../lib/images';
 import { carHireLink, googleFlightsLink, insuranceLink, skyscannerLink, stayLink, transferLink, airlineLink } from '../lib/links';
 import { unitLabel, KIND_LABEL } from '../lib/stays';
 import { downloadFile, tripToICS } from '../lib/ics';
-import { tripSummaryText } from '../lib/trips';
+import { recalcTrip, tripSummaryText } from '../lib/trips';
+import { PickLinks, RealPicksEditor } from './RealPicks';
+import { safeUrl } from '../lib/links';
 import { CostTable, Ext, Sheet, SmartImage } from './ui';
 import { IS_ARTIFACT } from '../lib/env';
 
@@ -312,6 +314,30 @@ function TripDetail({
         </ol>
       </section>
 
+      <section className="card pad stack" style={{ gap: 10 }}>
+        <div className="row between">
+          <h3 style={{ fontSize: '1rem' }}>🔗 Your real flights & stay</h3>
+          {trip.picks && <span className="badge good">Prices from your links</span>}
+        </div>
+        <PickLinks picks={trip.picks} />
+        <details open={!trip.picks}>
+          <summary>{trip.picks ? 'Change your links & prices' : 'Find the real ones and add their links'}</summary>
+          <div style={{ marginTop: 10 }}>
+            <RealPicksEditor
+              dest={dest}
+              travellers={trip.travellers}
+              checkIn={trip.startDate}
+              checkOut={trip.endDate}
+              outbound={o}
+              inbound={b}
+              stay={s}
+              picks={trip.picks ?? {}}
+              onChange={(picks) => onUpdate(recalcTrip({ ...trip, picks: Object.values(picks).some((v) => v !== undefined) ? picks : undefined }))}
+            />
+          </div>
+        </details>
+      </section>
+
       <section className="card pad">
         <h3 style={{ fontSize: '1rem', marginBottom: 4 }}>✅ Booking checklist</h3>
         <p className="tiny muted" style={{ margin: '0 0 6px' }}>
@@ -328,7 +354,11 @@ function TripDetail({
               </div>
             </div>
             <div className="row" style={{ justifyContent: 'flex-end' }}>
-              <Ext href={skyscannerLink(trip.origin, dest, trip.startDate, trip.endDate, trip.travellers)}>Skyscanner</Ext>
+              {safeUrl(trip.picks?.outUrl) ? (
+                <Ext href={safeUrl(trip.picks?.outUrl)!}>My flight</Ext>
+              ) : (
+                <Ext href={skyscannerLink(trip.origin, dest, trip.startDate, trip.endDate, trip.travellers)}>Skyscanner</Ext>
+              )}
               {o && <Ext href={airlineLink(o)}>{o.airline}</Ext>}
             </div>
           </div>
@@ -338,9 +368,9 @@ function TripDetail({
             <input type="checkbox" checked={trip.booked.stay} onChange={(e) => setBooked('stay', e.target.checked)} aria-label="Stay booked" />
             <div>
               <div className="strong">Stay · {money(s.total)}</div>
-              <div className="tiny muted">{s.listing.name}</div>
+              <div className="tiny muted">{trip.picks?.stayName ?? s.listing.name}</div>
             </div>
-            <Ext href={stayLink(dest, s, trip.startDate, trip.endDate, trip.travellers)}>{s.listing.source}</Ext>
+            <Ext href={safeUrl(trip.picks?.stayUrl) ?? stayLink(dest, s, trip.startDate, trip.endDate, trip.travellers)}>{trip.picks?.stayUrl ? 'My stay' : s.listing.source}</Ext>
           </div>
         )}
         {trip.extras.transfer !== 'none' && (

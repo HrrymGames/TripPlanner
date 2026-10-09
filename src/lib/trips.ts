@@ -1,4 +1,4 @@
-import type { Extras, FlightOption, ISODate, StayFilters, StayQuote, Travellers, Trip } from '../types';
+import type { Extras, FlightOption, ISODate, RealPicks, StayFilters, StayQuote, Travellers, Trip } from '../types';
 import { destById } from '../data/destinations';
 import { addDays, formatDate, monthOf, MONTHS_SHORT, todayISO } from './dates';
 import { getFlights } from './flights';
@@ -23,6 +23,7 @@ export interface PlannerDraft {
   name?: string;
   editingTripId?: string;
   viewMonth?: string; // "YYYY-MM"
+  picks?: RealPicks;
 }
 
 export const DEFAULT_DRAFT: PlannerDraft = {
@@ -67,7 +68,7 @@ export function resolveDraft(d: PlannerDraft): ResolvedDraft {
       if (l) stay = quoteStay(l, d.startDate, d.nights, people);
     }
   }
-  const costs = computeCosts({ dest, travellers: d.travellers, nights: d.nights, outbound, inbound, stay, extras: d.extras });
+  const costs = computeCosts({ dest, travellers: d.travellers, nights: d.nights, outbound, inbound, stay, extras: d.extras, picks: d.picks });
   return { outbound, inbound, outOptions, backOptions, endDate, stay, costs };
 }
 
@@ -76,9 +77,17 @@ export function defaultTripName(destId: string, start: ISODate): string {
   return `${dest.name.replace(/\s*\(.*\)/, '')} ${MONTHS_SHORT[monthOf(start)]} ${start.slice(0, 4)}`;
 }
 
-export function packageToTrip(p: TripPackage): Trip {
+/** Recalculate a saved trip's totals (e.g. after real prices were pasted in). */
+export function recalcTrip(t: Trip): Trip {
+  const costs = computeCosts({ dest: destById(t.destId), travellers: t.travellers, nights: t.nights, outbound: t.outbound, inbound: t.inbound, stay: t.stay, extras: t.extras, picks: t.picks });
+  return { ...t, costs, updatedAt: new Date().toISOString() };
+}
+
+const hasPicks = (p?: RealPicks) => !!p && Object.values(p).some((v) => v !== undefined && v !== '');
+
+export function packageToTrip(p: TripPackage, picks?: RealPicks): Trip {
   const now = new Date().toISOString();
-  return {
+  const trip: Trip = {
     id: uid(),
     name: defaultTripName(p.destId, p.startDate),
     createdAt: now,
@@ -97,7 +106,9 @@ export function packageToTrip(p: TripPackage): Trip {
     notes: '',
     booked: { flights: false, stay: false, transfers: false, insurance: false },
     label: p.label,
+    picks: hasPicks(picks) ? picks : undefined,
   };
+  return trip.picks ? recalcTrip(trip) : trip;
 }
 
 export function packageToDraft(p: TripPackage): PlannerDraft {
@@ -132,6 +143,7 @@ export function tripToDraft(t: Trip): PlannerDraft {
     extras: t.extras,
     name: t.name,
     editingTripId: t.id,
+    picks: t.picks,
     viewMonth: t.startDate.slice(0, 7),
   };
 }
@@ -158,6 +170,7 @@ export function draftToTrip(d: PlannerDraft, r: ResolvedDraft, existing?: Trip):
     notes: existing?.notes ?? '',
     booked: existing?.booked ?? { flights: false, stay: false, transfers: false, insurance: false },
     label: existing?.label,
+    picks: hasPicks(d.picks) ? d.picks : undefined,
   };
 }
 
@@ -170,6 +183,9 @@ export function tripSummaryText(t: Trip): string {
   if (t.outbound) lines.push(`Out: ${t.outbound.airline} ${t.outbound.flightNo} ${t.outbound.from} ${t.outbound.depart} → ${t.outbound.to} ${t.outbound.arrive}`);
   if (t.inbound) lines.push(`Back: ${t.inbound.airline} ${t.inbound.flightNo} ${t.inbound.from} ${t.inbound.depart} → ${t.inbound.to} ${t.inbound.arrive}`);
   if (t.stay) lines.push(`Stay: ${t.stay.listing.name}, ${t.stay.listing.area} (${t.stay.listing.source})`);
+  if (t.picks?.outUrl) lines.push(`Flight out link: ${t.picks.outUrl}`);
+  if (t.picks?.backUrl) lines.push(`Flight back link: ${t.picks.backUrl}`);
+  if (t.picks?.stayUrl) lines.push(`Stay link: ${t.picks.stayUrl}`);
   lines.push(`Total to book: £${t.costs.bookableTotal.toLocaleString('en-GB')} (£${t.costs.perPersonBookable.toLocaleString('en-GB')} each)`);
   if (t.costs.spending) lines.push(`Whole trip incl. spending: £${t.costs.grandTotal.toLocaleString('en-GB')} (£${t.costs.perPerson.toLocaleString('en-GB')} each)`);
   return lines.join('\n');

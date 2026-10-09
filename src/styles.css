@@ -1604,3 +1604,53 @@ details > summary::-webkit-details-marker {
     display: none;
   }
 }
+
+/* ——— Real picks ——— */
+.pick {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  border-radius: var(--radius);
+  border: 1.5px dashed var(--border);
+  background: var(--surface);
+}
+
+.pick.has {
+  border-style: solid;
+  border-color: var(--good);
+}
+
+.pick-fields {
+  display: grid;
+  gap: 10px;
+}
+
+@media (min-width: 560px) {
+  .pick-fields {
+    grid-template-columns: 2fr 1fr;
+  }
+}
+
+.pkg .open-combo {
+  appearance: none;
+  border: 0;
+  padding: 0;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+  display: block;
+  width: 100%;
+}
+
+@media (max-width: 559px) {
+  .check-row {
+    grid-template-columns: auto 1fr;
+  }
+  .check-row > :last-child {
+    grid-column: 2;
+    justify-self: start;
+  }
+}

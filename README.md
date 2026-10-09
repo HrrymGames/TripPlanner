@@ -20,6 +20,7 @@ You get, for each destination:
 - **More combinations** — everyone in one villa, split across apartments, hotel rooms, all-inclusive, private pool, closest to the beach, most central, alternative dates, rock-bottom hostel.
 - If nothing fits the budget, it says how far over you are and can suggest **cheaper places** with the same vibe.
 - If no place is named, it picks matching destinations (e.g. warm enough for that month).
+- **Tap any combo to open it.** Each flight links to the real results for that exact day, airports and airline (Google Flights, Skyscanner, the airline), and the stay links to Airbnb / Booking.com / Vrbo searches matching its area, dates, group size, bedrooms, pool and price. When you find the real one, paste its link and price: the totals switch to your real prices and the links are saved with the trip ("Open Airbnb listing 12345").
 
 ### 🗓️ Step by step
 1. **Where & who** — destination, airport, adults/children, number of nights.
@@ -29,7 +30,7 @@ You get, for each destination:
 5. **Summary** — everything added up, per person and total, then save.
 
 ### ♡ Saved trips
-Full itineraries with flights, stay, day-by-day timeline, booking checklist with links (tick things off as you book), notes, costs, **Add to calendar** (.ics), share to the group chat, print/PDF, duplicate, edit, and backup/restore to move trips between devices.
+Full itineraries with flights, stay, your real booking links (tap to open the exact Airbnb / flight page you picked), day-by-day timeline, booking checklist with links (tick things off as you book), notes, costs, **Add to calendar** (.ics), share to the group chat, print/PDF, duplicate, edit, and backup/restore to move trips between devices.
 
 ## Phone & iPad
 - Mobile-first layout: bottom tab bar on phones, top tabs + sticky running total on iPad/desktop, swipeable cards, 44px+ touch targets, no zoom-on-focus, safe-area aware (notch / home bar), dark mode.

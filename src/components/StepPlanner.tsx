@@ -5,12 +5,13 @@ import { ORIGINS, originByCode } from '../data/airports';
 import { formatDate, formatRange, todayISO, addDays, schoolHolidayOn } from '../lib/dates';
 import { duration, money, moneyExact, plural } from '../lib/format';
 import { listingImage, useDestinationImage } from '../lib/images';
-import { airbnbLink, bookingLink, carHireLink, googleFlightsLink, kayakLink, skyscannerLink, stayLink, vrboLink, airlineLink, insuranceLink, transferLink } from '../lib/links';
+import { airbnbLink, bookingLink, carHireLink, googleFlightsLink, kayakLink, skyscannerLink, stayLink, vrboLink, flightDayGoogleLink, insuranceLink, transferLink } from '../lib/links';
 import { AMENITY_LABEL, DEFAULT_FILTERS, KIND_LABEL, searchStays, unitLabel } from '../lib/stays';
 import { insuranceCost, transferCost } from '../lib/costs';
 import { avgTemp } from '../lib/season';
 import type { PlannerDraft, ResolvedDraft } from '../lib/trips';
 import { PriceCalendar } from './PriceCalendar';
+import { RealPicksEditor } from './RealPicks';
 import { Chip, CostTable, Ext, Segmented, SmartImage, Stepper } from './ui';
 
 interface Props {
@@ -68,7 +69,8 @@ export function StepPlanner({ draft, setDraft, resolved, onSave, onReset }: Prop
       }
     : undefined;
 
-  const pickDate = (iso: string) => update({ startDate: iso, outboundId: undefined, inboundId: undefined, viewMonth: iso.slice(0, 7) });
+  // New dates make any pasted real links/prices stale.
+  const pickDate = (iso: string) => update({ startDate: iso, outboundId: undefined, inboundId: undefined, viewMonth: iso.slice(0, 7), picks: undefined });
 
   return (
     <div className="planner">
@@ -197,6 +199,7 @@ export function StepPlanner({ draft, setDraft, resolved, onSave, onReset }: Prop
                   selectedId={draft.outboundId}
                   bags={draft.extras.bagsPerPerson}
                   people={people}
+                  travellers={draft.travellers}
                   onPick={(id) => update({ outboundId: id })}
                 />
                 <FlightChooser
@@ -205,6 +208,7 @@ export function StepPlanner({ draft, setDraft, resolved, onSave, onReset }: Prop
                   selectedId={draft.inboundId}
                   bags={draft.extras.bagsPerPerson}
                   people={people}
+                  travellers={draft.travellers}
                   onPick={(id) => update({ inboundId: id })}
                 />
                 <div className="links">
@@ -375,7 +379,7 @@ export function StepPlanner({ draft, setDraft, resolved, onSave, onReset }: Prop
                       <div className="tiny muted">{l.amenities.map((a) => AMENITY_LABEL[a]).join(' · ')}</div>
                       {q.fees > 0 && <div className="tiny muted">Includes {money(q.fees)} cleaning/service fees</div>}
                       <div className="row">
-                        <button className={`btn ${selected ? 'primary' : ''}`} style={{ flex: 1 }} type="button" onClick={() => update({ stayId: selected ? undefined : l.id })}>
+                        <button className={`btn ${selected ? 'primary' : ''}`} style={{ flex: 1 }} type="button" onClick={() => update({ stayId: selected ? undefined : l.id, picks: draft.picks ? { ...draft.picks, stayUrl: undefined, stayName: undefined, stayPrice: undefined } : undefined })}>
                           {selected ? '✓ Chosen' : 'Choose this'}
                         </button>
                         <Ext href={stayLink(dest, q, draft.startDate!, endDate!, draft.travellers)}>View on {l.source}</Ext>
@@ -439,6 +443,24 @@ export function StepPlanner({ draft, setDraft, resolved, onSave, onReset }: Prop
             <h2 className="section-title">Your trip</h2>
           </div>
           <SummaryBody draft={draft} resolved={resolved} />
+          {draft.startDate && endDate && (
+            <details style={{ marginTop: 12 }} open={!!draft.picks}>
+              <summary>🔗 Found the real ones? Add their links & prices</summary>
+              <div style={{ marginTop: 10 }}>
+                <RealPicksEditor
+                  dest={dest}
+                  travellers={draft.travellers}
+                  checkIn={draft.startDate}
+                  checkOut={endDate}
+                  outbound={outbound}
+                  inbound={inbound}
+                  stay={stay}
+                  picks={draft.picks ?? {}}
+                  onChange={(picks) => update({ picks: Object.values(picks).some((v) => v !== undefined) ? picks : undefined })}
+                />
+              </div>
+            </details>
+          )}
           <label className="field" style={{ marginTop: 12 }}>
             <span>Trip name</span>
             <input className="input" value={draft.name ?? ''} placeholder={`${dest.name.replace(/\s*\(.*\)/, '')} with the gang`} onChange={(e) => update({ name: e.target.value })} />
@@ -486,7 +508,7 @@ export function StepPlanner({ draft, setDraft, resolved, onSave, onReset }: Prop
   );
 }
 
-function FlightChooser({ title, options, selectedId, bags, people, onPick }: { title: string; options: FlightOption[]; selectedId?: string; bags: number; people: number; onPick: (id: string) => void }) {
+function FlightChooser({ title, options, selectedId, bags, people, travellers, onPick }: { title: string; options: FlightOption[]; selectedId?: string; bags: number; people: number; travellers: PlannerDraft['travellers']; onPick: (id: string) => void }) {
   const [all, setAll] = useState(false);
   const shown = all ? options : options.slice(0, 4);
   return (
@@ -515,8 +537,8 @@ function FlightChooser({ title, options, selectedId, bags, people, onPick }: { t
               <div className="tiny muted" style={{ textAlign: 'right' }}>
                 {money(pp * people)} group
               </div>
-              <a className="tiny" href={airlineLink(f)} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>
-                {f.airline} ↗
+              <a className="tiny" href={flightDayGoogleLink(f, travellers)} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>
+                See this day ↗
               </a>
             </div>
           </button>

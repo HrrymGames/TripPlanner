@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { Trip } from './types';
+import type { RealPicks, Trip } from './types';
 import { QuickPlan } from './components/QuickPlan';
 import { StepPlanner } from './components/StepPlanner';
 import { SavedTrips } from './components/SavedTrips';
@@ -45,10 +45,10 @@ export default function App() {
   const setDraft = useCallback((fn: (d: PlannerDraft) => PlannerDraft) => setDraftState((d) => fn(d)), []);
   const resolved = useMemo(() => resolveDraft(draft), [draft]);
 
-  const savePackage = (p: TripPackage) => {
-    setTrips((ts) => [packageToTrip(p), ...ts]);
+  const savePackage = (p: TripPackage, picks?: RealPicks) => {
+    setTrips((ts) => [packageToTrip(p, picks), ...ts]);
     setSavedPkgIds((s) => new Set(s).add(p.id));
-    toast('Saved to your trips ♡');
+    toast(picks && Object.keys(picks).length ? 'Saved with your links ♡' : 'Saved to your trips ♡');
   };
 
   const customise = (p: TripPackage) => {

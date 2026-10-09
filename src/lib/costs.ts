@@ -1,4 +1,4 @@
-import type { CostBreakdown, Destination, Extras, FlightOption, StayQuote, Travellers } from '../types';
+import type { CostBreakdown, Destination, Extras, FlightOption, RealPicks, StayQuote, Travellers } from '../types';
 import { flightCost } from './flights';
 
 export const DEFAULT_EXTRAS: Extras = { bagsPerPerson: 0, transfer: 'taxi', insurance: false, includeSpending: true };
@@ -36,12 +36,16 @@ export function computeCosts(args: {
   inbound?: FlightOption;
   stay?: StayQuote | null;
   extras: Extras;
+  picks?: RealPicks;
 }): CostBreakdown {
-  const { dest, travellers, nights, outbound, inbound, stay, extras } = args;
+  const { dest, travellers, nights, outbound, inbound, stay, extras, picks } = args;
   const people = totalPeople(travellers);
-  const flightsBase = ((outbound?.price ?? 0) + (inbound?.price ?? 0)) * people;
+  // A real price someone pasted in wins over our estimate.
+  const outPP = picks?.outPrice ?? outbound?.price ?? 0;
+  const backPP = picks?.backPrice ?? inbound?.price ?? 0;
+  const flightsBase = (outPP + backPP) * people;
   const bags = Math.round((flightCost(outbound, extras.bagsPerPerson) - (outbound?.price ?? 0) + flightCost(inbound, extras.bagsPerPerson) - (inbound?.price ?? 0)) * people);
-  const stayTotal = stay?.total ?? 0;
+  const stayTotal = picks?.stayPrice ?? stay?.total ?? 0;
   const transfers = transferCost(dest, people, nights, extras.transfer);
   const insurance = extras.insurance ? insuranceCost(dest, people, nights) : 0;
   const flights = Math.round(flightsBase);

@@ -188,6 +188,19 @@ export interface CostBreakdown {
   people: number;
 }
 
+/** The real flights/stay someone found via the links, overriding the estimates. */
+export interface RealPicks {
+  outUrl?: string;
+  /** Per person, GBP. */
+  outPrice?: number;
+  backUrl?: string;
+  backPrice?: number;
+  stayUrl?: string;
+  stayName?: string;
+  /** Whole stay for the group, GBP. */
+  stayPrice?: number;
+}
+
 export interface Trip {
   id: string;
   name: string;
@@ -207,6 +220,7 @@ export interface Trip {
   notes: string;
   booked: { flights: boolean; stay: boolean; transfers: boolean; insurance: boolean };
   label?: string;
+  picks?: RealPicks;
 }
 
 export interface ParsedRequest {

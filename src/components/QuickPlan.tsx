@@ -9,6 +9,8 @@ import { useDestinationImage } from '../lib/images';
 import { KIND_LABEL, AMENITY_LABEL } from '../lib/stays';
 import { safeGet, safeSet } from '../lib/storage';
 import { PackageCard } from './PackageCard';
+import { ComboSheet } from './ComboSheet';
+import type { RealPicks } from '../types';
 
 const EXAMPLES = [
   'ten people albufeira next summer a week ish',
@@ -23,7 +25,7 @@ const QUERY_KEY = 'tripbooker.quick.query';
 const ORIGIN_KEY = 'tripbooker.origin';
 
 interface Props {
-  onSave: (p: TripPackage) => void;
+  onSave: (p: TripPackage, picks?: RealPicks) => void;
   onCustomise: (p: TripPackage) => void;
   savedPackageIds: Set<string>;
 }
@@ -35,6 +37,7 @@ export function QuickPlan({ onSave, onCustomise, savedPackageIds }: Props) {
   const [result, setResult] = useState<PlanResult | null>(null);
   const [alternatives, setAlternatives] = useState<DestinationPlan[] | null>(null);
   const [busy, setBusy] = useState(false);
+  const [openPkg, setOpenPkg] = useState<TripPackage | null>(null);
 
   const run = (p: ParsedRequest) => {
     setBusy(true);
@@ -155,11 +158,26 @@ export function QuickPlan({ onSave, onCustomise, savedPackageIds }: Props) {
             </div>
           )}
           {result.plans.map((plan) => (
-            <PlanSection key={plan.dest.id} plan={plan} onSave={onSave} onCustomise={onCustomise} savedIds={savedPackageIds} multi={result.plans.length > 1} />
+            <PlanSection key={plan.dest.id} plan={plan} onSave={onSave} onCustomise={onCustomise} onOpen={setOpenPkg} savedIds={savedPackageIds} multi={result.plans.length > 1} />
           ))}
           {alternatives?.map((plan) => (
-            <PlanSection key={`alt-${plan.dest.id}`} plan={plan} onSave={onSave} onCustomise={onCustomise} savedIds={savedPackageIds} multi altTitle="Cheaper idea" />
+            <PlanSection key={`alt-${plan.dest.id}`} plan={plan} onSave={onSave} onCustomise={onCustomise} onOpen={setOpenPkg} savedIds={savedPackageIds} multi altTitle="Cheaper idea" />
           ))}
+          {openPkg && (
+            <ComboSheet
+              pkg={openPkg}
+              saved={savedPackageIds.has(openPkg.id)}
+              onClose={() => setOpenPkg(null)}
+              onSave={(picks) => {
+                onSave(openPkg, picks);
+                setOpenPkg(null);
+              }}
+              onCustomise={() => {
+                setOpenPkg(null);
+                onCustomise(openPkg);
+              }}
+            />
+          )}
           <p className="disclaimer">
             Prices are smart estimates built from typical fares and rental prices for your dates, group size and season — tap the links to see live prices and book on
             Skyscanner, Google Flights, Airbnb, Booking.com and Vrbo.
@@ -251,6 +269,7 @@ function PlanSection({
   plan,
   onSave,
   onCustomise,
+  onOpen,
   savedIds,
   multi,
   altTitle,
@@ -258,6 +277,7 @@ function PlanSection({
   plan: DestinationPlan;
   onSave: (p: TripPackage) => void;
   onCustomise: (p: TripPackage) => void;
+  onOpen: (p: TripPackage) => void;
   savedIds: Set<string>;
   multi: boolean;
   altTitle?: string;
@@ -306,7 +326,7 @@ function PlanSection({
 
       <div className="cards-swipe">
         {plan.headline.map((pkg) => (
-          <PackageCard key={pkg.id + pkg.label} pkg={pkg} onSave={() => onSave(pkg)} onCustomise={() => onCustomise(pkg)} saved={savedIds.has(pkg.id)} />
+          <PackageCard key={pkg.id + pkg.label} pkg={pkg} onSave={() => onSave(pkg)} onCustomise={() => onCustomise(pkg)} onOpen={() => onOpen(pkg)} saved={savedIds.has(pkg.id)} />
         ))}
       </div>
 
@@ -317,7 +337,7 @@ function PlanSection({
           </h3>
           <div className="grid three">
             {more.map((pkg) => (
-              <PackageCard key={pkg.id + pkg.label} pkg={pkg} onSave={() => onSave(pkg)} onCustomise={() => onCustomise(pkg)} saved={savedIds.has(pkg.id)} />
+              <PackageCard key={pkg.id + pkg.label} pkg={pkg} onSave={() => onSave(pkg)} onCustomise={() => onCustomise(pkg)} onOpen={() => onOpen(pkg)} saved={savedIds.has(pkg.id)} />
             ))}
           </div>
           {plan.more.length > 3 && (
