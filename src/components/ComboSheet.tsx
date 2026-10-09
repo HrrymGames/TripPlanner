@@ -7,7 +7,7 @@ import { computeCosts, transferQuote } from '../lib/costs';
 import { duration, money, moneyExact, plural } from '../lib/format';
 import { listingImage } from '../lib/images';
 import { carHireLink, flightDayGoogleLink, safeUrl, stayLink } from '../lib/links';
-import { unitLabel } from '../lib/stays';
+import { stayEstimateNote, stayTitle, unitLabel } from '../lib/stays';
 import { stayShort } from './PackageCard';
 import { RealPicksEditor } from './RealPicks';
 import { CostTable, Sheet, SmartImage } from './ui';
@@ -30,7 +30,7 @@ export function ComboSheet({ pkg, onClose, onSave, onCustomise, saved }: { pkg: 
     <Sheet title={`${pkg.label} · ${dest.name.split(' (')[0]}`} onClose={onClose}>
       <div className="combo-head">
         <div className="combo-img">
-          <SmartImage src={listingImage(l, 800, 400)} alt={l.name} kind={l.kind} />
+          <SmartImage src={listingImage(l, 800, 400)} alt={stayTitle(l)} kind={l.kind} />
         </div>
         <div>
           <div className="combo-total">
@@ -65,11 +65,11 @@ export function ComboSheet({ pkg, onClose, onSave, onCustomise, saved }: { pkg: 
         )}
         <Row
           icon="🏠"
-          title={picks.stayName ?? l.name}
-          sub={`${stayShort(pkg)} · ${l.area} · ⭐ ${l.rating.toFixed(1)}`}
-          price={money(picks.stayPrice ?? pkg.stay.total)}
+          title={picks.stayName ?? stayTitle(l)}
+          sub={picks.stayPrice !== undefined ? `${stayShort(pkg, false)} · your price` : `${stayShort(pkg, false)} · estimate`}
+          price={`${picks.stayPrice !== undefined ? '' : '≈ '}${money(picks.stayPrice ?? pkg.stay.total)}`}
           href={stayLinkUrl}
-          linkLabel={picks.stayUrl ? 'Open' : l.source}
+          linkLabel={picks.stayUrl ? 'Open' : `Search ${l.source}`}
         />
       </div>
 
@@ -77,7 +77,7 @@ export function ComboSheet({ pkg, onClose, onSave, onCustomise, saved }: { pkg: 
         <summary>Price breakdown</summary>
         <CostTable c={costs} />
         <p className="tiny muted" style={{ margin: '6px 0 0' }}>
-          {unitLabel(pkg.stay)}. {pkg.extras.bagsPerPerson ? 'Includes hold bags.' : 'Hand luggage only.'} Estimates — tap the links for live prices.
+          {unitLabel(pkg.stay)}. {pkg.extras.bagsPerPerson ? 'Includes hold bags.' : 'Hand luggage only.'} {stayEstimateNote(l.source)}
         </p>
       </details>
 

@@ -6,7 +6,7 @@ import { addDays, diffDays, formatDate, formatRange, todayISO } from '../lib/dat
 import { duration, money, plural } from '../lib/format';
 import { listingImage, useDestinationImage } from '../lib/images';
 import { carHireLink, googleFlightsLink, insuranceLink, skyscannerLink, stayLink, transferLink, airlineLink } from '../lib/links';
-import { unitLabel, KIND_LABEL } from '../lib/stays';
+import { unitLabel, KIND_LABEL, stayEstimateNote, stayTitle } from '../lib/stays';
 import { downloadFile, tripToICS } from '../lib/ics';
 import { recalcTrip, tripSummaryText } from '../lib/trips';
 import { PickLinks, RealPicksEditor } from './RealPicks';
@@ -275,7 +275,7 @@ function TripDetail({
             <li>
               <span className="dot">🏠</span>
               <div>
-                <div className="strong">Check in · {s.listing.name}</div>
+                <div className="strong">Check in · {trip.picks?.stayName ?? stayTitle(s.listing)}</div>
                 <div className="small muted">
                   {KIND_LABEL[s.listing.kind]} in {s.listing.area} · {unitLabel(s)}
                 </div>
@@ -368,9 +368,9 @@ function TripDetail({
             <input type="checkbox" checked={trip.booked.stay} onChange={(e) => setBooked('stay', e.target.checked)} aria-label="Stay booked" />
             <div>
               <div className="strong">Stay · {money(s.total)}</div>
-              <div className="tiny muted">{trip.picks?.stayName ?? s.listing.name}</div>
+              <div className="tiny muted">{trip.picks?.stayName ?? `${stayTitle(s.listing)} (estimate)`}</div>
             </div>
-            <Ext href={safeUrl(trip.picks?.stayUrl) ?? stayLink(dest, s, trip.startDate, trip.endDate, trip.travellers)}>{trip.picks?.stayUrl ? 'My stay' : s.listing.source}</Ext>
+            <Ext href={safeUrl(trip.picks?.stayUrl) ?? stayLink(dest, s, trip.startDate, trip.endDate, trip.travellers)}>{trip.picks?.stayUrl ? 'My stay' : `Search ${s.listing.source}`}</Ext>
           </div>
         )}
         {trip.extras.transfer !== 'none' && (
@@ -398,11 +398,12 @@ function TripDetail({
       {s && (
         <section className="card" style={{ overflow: 'hidden' }}>
           <div style={{ aspectRatio: '16 / 8' }}>
-            <SmartImage src={listingImage(s.listing, 800, 400)} alt={s.listing.name} kind={s.listing.kind} />
+            <SmartImage src={listingImage(s.listing, 800, 400)} alt={stayTitle(s.listing)} kind={s.listing.kind} />
           </div>
           <div className="pad small">
-            <strong>{s.listing.name}</strong> · ⭐ {s.listing.rating.toFixed(2)} · {s.listing.pool !== 'none' ? `🏊 ${s.listing.pool} pool · ` : ''}
-            {s.listing.bedrooms * (s.listing.kind === 'hotel' ? s.units : 1)} {s.listing.kind === 'hotel' ? 'rooms' : 'bedrooms'}
+            <strong>{trip.picks?.stayName ?? stayTitle(s.listing)}</strong> · {unitLabel(s)}
+            {s.listing.pool !== 'none' ? ` · ${s.listing.pool === 'private' ? 'private pool' : 'pool'}` : ''}
+            {!trip.picks?.stayUrl && <div className="tiny muted" style={{ marginTop: 4 }}>{stayEstimateNote(s.listing.source)}</div>}
           </div>
         </section>
       )}

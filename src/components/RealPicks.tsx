@@ -3,7 +3,7 @@ import type { Destination, FlightOption, ISODate, RealPicks, StayQuote, Travelle
 import { formatDate } from '../lib/dates';
 import { moneyExact, money } from '../lib/format';
 import { airlineLink, airbnbLink, bookingLink, describeLink, flightDayGoogleLink, flightDaySkyscannerLink, safeUrl, stayLink, vrboLink } from '../lib/links';
-import { unitLabel } from '../lib/stays';
+import { stayTitle, unitLabel } from '../lib/stays';
 import { Ext, FlightLine } from './ui';
 
 interface Props {
@@ -95,11 +95,11 @@ export function RealPicksEditor({ dest, travellers, checkIn, checkOut, outbound,
       )}
       <PickBlock
         icon="🏠"
-        title={l ? `Stay like ${l.name}` : 'Your stay'}
+        title={l ? stayTitle(l) : 'Your stay'}
         estimate={
           stay ? (
             <div className="small">
-              {unitLabel(stay)} in {stay.listing.area} · estimate <strong>{money(stay.total)}</strong> ({money(stay.total / people)} pp)
+              {unitLabel(stay)} · estimate <strong>≈ {money(stay.total)}</strong> ({money(stay.total / people)} pp)
             </div>
           ) : (
             <div className="small muted">No stay chosen yet.</div>
@@ -108,10 +108,10 @@ export function RealPicksEditor({ dest, travellers, checkIn, checkOut, outbound,
         find={
           !compact && (
             <>
-              {stay && <Ext href={stayLink(dest, stay, checkIn, checkOut, travellers)}>Matching on {stay.listing.source}</Ext>}
-              {stay?.listing.source !== 'Airbnb' && <Ext href={airbnbLink(dest, matchOpts)}>Airbnb</Ext>}
-              {stay?.listing.source !== 'Booking.com' && <Ext href={bookingLink(dest, matchOpts)}>Booking.com</Ext>}
-              {stay?.listing.source !== 'Vrbo' && l?.kind !== 'hotel' && <Ext href={vrboLink(dest, matchOpts)}>Vrbo</Ext>}
+              {stay && <Ext href={stayLink(dest, stay, checkIn, checkOut, travellers)}>Search {stay.listing.source}</Ext>}
+              {stay?.listing.source !== 'Airbnb' && <Ext href={airbnbLink(dest, matchOpts)}>Search Airbnb</Ext>}
+              {stay?.listing.source !== 'Booking.com' && <Ext href={bookingLink(dest, matchOpts)}>Search Booking.com</Ext>}
+              {stay?.listing.source !== 'Vrbo' && l?.kind !== 'hotel' && <Ext href={vrboLink(dest, matchOpts)}>Search Vrbo</Ext>}
             </>
           )
         }
@@ -166,7 +166,7 @@ function PickBlock({
       {find && (
         <div>
           <div className="tiny muted strong" style={{ marginBottom: 6 }}>
-            1 · Open the real options for these dates
+            1 · Search the real options for these dates
           </div>
           <div className="links">{find}</div>
         </div>

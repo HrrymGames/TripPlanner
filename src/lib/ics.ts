@@ -1,6 +1,7 @@
 import type { Trip } from '../types';
 import { destById } from '../data/destinations';
 import { addDays } from './dates';
+import { stayTitle } from './stays';
 
 const stamp = (date: string, time?: string) => (time ? `${date.replace(/-/g, '')}T${time.replace(':', '')}00` : date.replace(/-/g, ''));
 const esc = (s: string) => s.replace(/([,;\\])/g, '\\$1').replace(/\n/g, '\\n');
@@ -24,7 +25,7 @@ export function tripToICS(trip: Trip): string {
     event(`${trip.id}-back`, `Flight ${f.flightNo} ${f.from}→${f.to}`, stamp(f.date, f.depart), stamp(f.arriveNextDay ? addDays(f.date, 1) : f.date, f.arrive), false, `${f.airline} ${f.flightNo}. Times are local.`);
   }
   if (trip.stay) {
-    event(`${trip.id}-stay`, `🏠 ${trip.stay.listing.name}`, stamp(trip.startDate), stamp(trip.endDate), true, `${trip.stay.listing.area}, ${dest.name}`);
+    event(`${trip.id}-stay`, `🏠 ${trip.picks?.stayName ?? stayTitle(trip.stay.listing)}`, stamp(trip.startDate), stamp(trip.endDate), true, `${trip.stay.listing.area}, ${dest.name}`);
   }
   lines.push('END:VCALENDAR');
   return lines.join('\r\n');

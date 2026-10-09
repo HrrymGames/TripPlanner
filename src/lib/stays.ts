@@ -361,3 +361,20 @@ export function unitLabel(q: StayQuote): string {
   }
   return `${q.units} dorm bed${q.units > 1 ? 's' : ''}`;
 }
+
+const KIND_PLURAL: Record<StayKind, string> = { villa: 'Villas', apartment: 'Apartments', hotel: 'Hotels', hostel: 'Hostels' };
+
+/** What kind of stay, where: "Villas in Galé" (no made-up property names). */
+export function stayKindArea(l: StayListing): string {
+  const kind = l.kind === 'hotel' && l.stars ? `${l.stars}-star hotels` : KIND_PLURAL[l.kind];
+  return `${kind} in ${l.area}`;
+}
+
+/** Same, with the destination for context: "Villas in Galé, Albufeira". */
+export function stayTitle(l: StayListing): string {
+  const place = destById(l.destId).name.replace(/\s*\(.*\)/, '').replace(/ & .*/, '');
+  return l.area.toLowerCase().includes(place.toLowerCase()) ? stayKindArea(l) : `${stayKindArea(l)}, ${place}`;
+}
+
+export const stayEstimateNote = (source: StaySource) =>
+  `Estimated price for this type of stay. The link opens a ${source} search with matching filters, not one specific place.`;

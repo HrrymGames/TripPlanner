@@ -6,7 +6,7 @@ import { formatDate, formatRange, todayISO, addDays, schoolHolidayOn } from '../
 import { duration, money, moneyExact, plural } from '../lib/format';
 import { listingImage, useDestinationImage } from '../lib/images';
 import { airbnbLink, bookingLink, carHireLink, googleFlightsLink, kayakLink, skyscannerLink, stayLink, vrboLink, flightDayGoogleLink, insuranceLink, transferLink } from '../lib/links';
-import { AMENITY_LABEL, DEFAULT_FILTERS, KIND_LABEL, searchStays, unitLabel } from '../lib/stays';
+import { AMENITY_LABEL, DEFAULT_FILTERS, KIND_LABEL, searchStays, stayKindArea, stayTitle, unitLabel } from '../lib/stays';
 import { insuranceCost, transferCost, transferQuote } from '../lib/costs';
 import { avgTemp } from '../lib/season';
 import type { PlannerDraft, ResolvedDraft } from '../lib/trips';
@@ -235,7 +235,7 @@ export function StepPlanner({ draft, setDraft, resolved, onSave, onReset }: Prop
             <span className={`step-num ${stepsDone[2] ? 'done' : ''}`}>3</span>
             <div>
               <h2 className="section-title">Where to stay</h2>
-              <div className="muted small">Villas, apartments and hotels like the ones on Airbnb, Booking.com and Vrbo for {plural(people, 'person', 'people')}.</div>
+              <div className="muted small">Types of stay that fit {plural(people, 'person', 'people')}, with estimated prices. Each “Search” link opens Airbnb, Booking.com or Vrbo with matching filters so you can pick a real place.</div>
             </div>
           </div>
           {!draft.startDate ? (
@@ -327,7 +327,7 @@ export function StepPlanner({ draft, setDraft, resolved, onSave, onReset }: Prop
                       <select className="select" style={{ width: 'auto', minHeight: 40 }} value={draft.filters.sort} onChange={(e) => setFilters({ sort: e.target.value as StayFilters['sort'] })}>
                         <option value="value">Best value</option>
                         <option value="price">Cheapest</option>
-                        <option value="rating">Top rated</option>
+                        <option value="rating">Best quality</option>
                         <option value="beach">Nearest beach</option>
                         <option value="centre">Nearest centre</option>
                       </select>
@@ -347,7 +347,7 @@ export function StepPlanner({ draft, setDraft, resolved, onSave, onReset }: Prop
                 </div>
               )}
 
-              <div className="muted small">{plural(stays.length, 'option')} for your group</div>
+              <div className="muted small">{plural(stays.length, 'type', 'types')} of stay for your group · prices are estimates</div>
               {stays.length === 0 && <div className="notice">Nothing fits those filters for {plural(people, 'person', 'people')} — try removing one.</div>}
               {visibleStays.map((q) => {
                 const l = q.listing;
@@ -355,20 +355,20 @@ export function StepPlanner({ draft, setDraft, resolved, onSave, onReset }: Prop
                 return (
                   <article key={l.id} className="card stay-card" data-selected={selected}>
                     <div className="media">
-                      <SmartImage src={listingImage(l)} alt={l.name} kind={l.kind} />
+                      <SmartImage src={listingImage(l)} alt={stayKindArea(l)} kind={l.kind} />
                       <span className={`source ${l.source}`}>{l.source}</span>
                     </div>
                     <div className="body">
                       <div className="stay-head">
                         <div style={{ minWidth: 0 }}>
-                          <h3 style={{ fontSize: '1.05rem' }}>{l.name}</h3>
+                          <h3 style={{ fontSize: '1.05rem' }}>{stayKindArea(l)}</h3>
                           <div className="muted small">
-                            {KIND_LABEL[l.kind]} · {l.area} · ⭐ {l.rating.toFixed(2)} ({l.reviews}){l.stars ? ` · ${'★'.repeat(l.stars)}` : ''}
+                            {unitLabel(q)}
                           </div>
                         </div>
                         <div style={{ textAlign: 'right' }}>
                           <div className="strong" style={{ fontSize: '1.15rem' }}>
-                            {money(q.total)}
+                            ≈ {money(q.total)}
                           </div>
                           <div className="tiny muted">
                             {money(q.avgNightly)}/night · {money(q.total / people)} pp
@@ -376,7 +376,6 @@ export function StepPlanner({ draft, setDraft, resolved, onSave, onReset }: Prop
                         </div>
                       </div>
                       <div className="row small">
-                        <span className="badge">{unitLabel(q)}</span>
                         {l.kind !== 'hotel' && l.kind !== 'hostel' && <span className="badge">🛏️ {l.beds * q.units} beds · 🛁 {l.bathrooms * q.units}</span>}
                         {l.pool === 'private' && <span className="badge good">🏊 Private pool</span>}
                         {l.pool === 'shared' && <span className="badge primary">🏊 Shared pool</span>}
@@ -390,7 +389,7 @@ export function StepPlanner({ draft, setDraft, resolved, onSave, onReset }: Prop
                         <button className={`btn ${selected ? 'primary' : ''}`} style={{ flex: 1 }} type="button" onClick={() => update({ stayId: selected ? undefined : l.id, picks: draft.picks ? { ...draft.picks, stayUrl: undefined, stayName: undefined, stayPrice: undefined } : undefined })}>
                           {selected ? '✓ Chosen' : 'Choose this'}
                         </button>
-                        <Ext href={stayLink(dest, q, draft.startDate!, endDate!, draft.travellers)}>View on {l.source}</Ext>
+                        <Ext href={stayLink(dest, q, draft.startDate!, endDate!, draft.travellers)}>Search {l.source}</Ext>
                       </div>
                     </div>
                   </article>
@@ -581,7 +580,7 @@ function SummaryBody({ draft, resolved, compact }: { draft: PlannerDraft; resolv
       {!compact && inbound && <div className="small">🛬 {inbound.airline} {inbound.flightNo} · {formatDate(inbound.date)} {inbound.depart} {inbound.from} → {inbound.arrive} {inbound.to}</div>}
       {stay ? (
         <div className="small">
-          🏠 {stay.listing.name} · {unitLabel(stay)}
+          🏠 {stayTitle(stay.listing)} · {unitLabel(stay)}
         </div>
       ) : (
         <div className="small muted">🏠 No stay chosen yet</div>

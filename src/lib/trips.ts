@@ -2,7 +2,7 @@ import type { Extras, FlightOption, ISODate, RealPicks, StayFilters, StayQuote, 
 import { destById } from '../data/destinations';
 import { addDays, formatDate, monthOf, MONTHS_SHORT, todayISO } from './dates';
 import { getFlights } from './flights';
-import { DEFAULT_FILTERS, listingById, quoteStay } from './stays';
+import { DEFAULT_FILTERS, listingById, quoteStay, stayTitle } from './stays';
 import { computeCosts, DEFAULT_EXTRAS } from './costs';
 import { uid } from './format';
 import type { TripPackage } from './planner';
@@ -182,7 +182,7 @@ export function tripSummaryText(t: Trip): string {
   ];
   if (t.outbound) lines.push(`Out: ${t.outbound.airline} ${t.outbound.flightNo} ${t.outbound.from} ${t.outbound.depart} → ${t.outbound.to} ${t.outbound.arrive}`);
   if (t.inbound) lines.push(`Back: ${t.inbound.airline} ${t.inbound.flightNo} ${t.inbound.from} ${t.inbound.depart} → ${t.inbound.to} ${t.inbound.arrive}`);
-  if (t.stay) lines.push(`Stay: ${t.stay.listing.name}, ${t.stay.listing.area} (${t.stay.listing.source})`);
+  if (t.stay) lines.push(`Stay: ${t.picks?.stayName ?? `${stayTitle(t.stay.listing)} (estimate, search on ${t.stay.listing.source})`}`);
   if (t.picks?.outUrl) lines.push(`Flight out link: ${t.picks.outUrl}`);
   if (t.picks?.backUrl) lines.push(`Flight back link: ${t.picks.backUrl}`);
   if (t.picks?.stayUrl) lines.push(`Stay link: ${t.picks.stayUrl}`);

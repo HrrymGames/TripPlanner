@@ -2,13 +2,13 @@ import type { TripPackage } from '../lib/planner';
 import { formatDate } from '../lib/dates';
 import { money } from '../lib/format';
 import { listingImage } from '../lib/images';
-import { KIND_LABEL } from '../lib/stays';
+import { KIND_LABEL, stayKindArea } from '../lib/stays';
 import { SmartImage } from './ui';
 
 /** Short summary of a stay: "Villa · 5 bed · private pool". */
-export function stayShort(pkg: TripPackage): string {
+export function stayShort(pkg: TripPackage, withKind = true): string {
   const l = pkg.stay.listing;
-  const bits = [KIND_LABEL[l.kind]];
+  const bits = withKind ? [KIND_LABEL[l.kind]] : [];
   if (l.kind === 'villa' || l.kind === 'apartment') bits.push(pkg.stay.units > 1 ? `${pkg.stay.units} × ${l.bedrooms} bed` : `${l.bedrooms} bed`);
   if (l.kind === 'hotel') bits.push(`${pkg.stay.units} room${pkg.stay.units > 1 ? 's' : ''}`);
   if (l.pool === 'private') bits.push('private pool');
@@ -28,7 +28,7 @@ export function PackageCard({ pkg, onOpen, onSave, saved }: { pkg: TripPackage; 
   const l = pkg.stay.listing;
   return (
     <article className="card pkg">
-      <button type="button" className="open-combo" onClick={onOpen} aria-label={`View ${pkg.label}: ${l.name}`}>
+      <button type="button" className="open-combo" onClick={onOpen} aria-label={`View ${pkg.label}: ${stayKindArea(l)}`}>
         <div className="media">
           <SmartImage src={listingImage(l)} alt={`${KIND_LABEL[l.kind]} in ${l.area}`} kind={l.kind} />
           <span className={`tag ${pkg.tone}`}>{pkg.label}</span>
@@ -43,7 +43,7 @@ export function PackageCard({ pkg, onOpen, onSave, saved }: { pkg: TripPackage; 
               <span aria-hidden>📅</span> {formatDate(pkg.startDate)} – {formatDate(pkg.endDate)} · {pkg.nights} nights
             </div>
             <div>
-              <span aria-hidden>🏠</span> {stayShort(pkg)}
+              <span aria-hidden>🏠</span> {stayKindArea(l)} · {stayShort(pkg, false)}
             </div>
             <div>
               <span aria-hidden>✈️</span> {flightShort(pkg)}
@@ -74,7 +74,7 @@ export function ComboRow({ pkg, onOpen }: { pkg: TripPackage; onOpen: () => void
       <span className="text">
         <strong>{pkg.label}</strong>
         <span className="muted small">
-          {stayShort(pkg)} · {formatDate(pkg.startDate, { weekday: false })}
+          {stayKindArea(l)} · {formatDate(pkg.startDate, { weekday: false })}
         </span>
       </span>
       <span className="price">
