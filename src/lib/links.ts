@@ -72,6 +72,9 @@ export function airlineLink(f: FlightOption): string {
     SWISS: 'https://www.swiss.com/gb/en',
     'Croatia Airlines': 'https://www.croatiaairlines.com/',
     'KM Malta Airlines': 'https://www.kmmaltairlines.com/',
+    United: 'https://www.united.com/en/gb',
+    'American Airlines': 'https://www.americanairlines.co.uk/',
+    Delta: 'https://www.delta.com/gb/en',
   };
   return sites[f.airline] ?? `https://www.google.com/search?q=${encodeURIComponent(`${f.airline} ${f.flightNo}`)}`;
 }

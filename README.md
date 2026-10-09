@@ -12,7 +12,7 @@ Type something casual like:
 - `family of 4 somewhere hot february half term with a pool`
 - `couple city break in march 3 nights under £400 each`
 
-It understands group size (incl. kids), destinations (and countries/regions like "Greece" or "the Canaries"), dates ("next summer", "Easter", "half term", "12–19 June"), trip length ("a week ish", "long weekend", "10 days"), budget (per person or total), stay type (villa / apartment / hotel / hostel / all-inclusive), pools, bedrooms, hot tubs, sea views, departure airport ("from Leeds"), direct flights and luggage.
+It understands group size (incl. kids), destinations — 50 hand-picked ones plus **any town, US state, region or country in the world** (it flies you to the nearest airport with good connections, e.g. Delaware → Philadelphia, and prices the taxi or hire car from the airport to your stay and back) — dates ("next summer", "Easter", "half term", "12–19 June"), trip length ("a week ish", "long weekend", "10 days"), budget (per person or total), stay type (villa / apartment / hotel / hostel / all-inclusive), pools, bedrooms, hot tubs, sea views, departure airport ("from Leeds"), direct flights and luggage.
 
 You get, for each destination:
 - **Best dates** — the cheapest departure dates in your window.
@@ -59,5 +59,6 @@ npm run build    # static site in dist/
 - `src/lib/planner.ts` — best dates, destination picking and package combinations
 - `src/lib/flights.ts`, `src/lib/stays.ts`, `src/lib/costs.ts` — pricing engine
 - `src/lib/links.ts` — deep links to booking sites
-- `src/data/` — destinations (50+) and UK/IE departure airports
+- `src/data/` — hand-picked destinations, UK/IE departure airports, and the world gazetteer (`geo-places.txt` from GeoNames, `geo-airports.txt` from OurAirports; regenerate with `scripts/build-geo.mjs`)
+- `src/lib/geo.ts` — place search, nearest airport, distance-based transfer prices
 - `src/components/` — Quick plan, Step-by-step planner, price calendar, saved trips

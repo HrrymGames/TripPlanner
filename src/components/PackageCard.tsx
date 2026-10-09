@@ -1,86 +1,89 @@
 import type { TripPackage } from '../lib/planner';
-import { destById } from '../data/destinations';
-import { formatRange } from '../lib/dates';
+import { formatDate } from '../lib/dates';
 import { money } from '../lib/format';
 import { listingImage } from '../lib/images';
-import { flightDayGoogleLink, stayLink } from '../lib/links';
-import { KIND_LABEL, unitLabel } from '../lib/stays';
-import { CostTable, Ext, FlightLine, SmartImage } from './ui';
+import { KIND_LABEL } from '../lib/stays';
+import { SmartImage } from './ui';
 
-export function PackageCard({ pkg, onSave, onCustomise, onOpen, saved }: { pkg: TripPackage; onSave: () => void; onCustomise: () => void; onOpen: () => void; saved: boolean }) {
-  const dest = destById(pkg.destId);
+/** Short summary of a stay: "Villa · 5 bed · private pool". */
+export function stayShort(pkg: TripPackage): string {
+  const l = pkg.stay.listing;
+  const bits = [KIND_LABEL[l.kind]];
+  if (l.kind === 'villa' || l.kind === 'apartment') bits.push(pkg.stay.units > 1 ? `${pkg.stay.units} × ${l.bedrooms} bed` : `${l.bedrooms} bed`);
+  if (l.kind === 'hotel') bits.push(`${pkg.stay.units} room${pkg.stay.units > 1 ? 's' : ''}`);
+  if (l.pool === 'private') bits.push('private pool');
+  else if (l.pool === 'shared') bits.push('pool');
+  if (l.boardBasis === 'all-inclusive') bits.push('all-inclusive');
+  return bits.join(' · ');
+}
+
+const flightShort = (pkg: TripPackage) => {
+  const direct = pkg.outbound.stops === 0 && pkg.inbound.stops === 0;
+  const airline = pkg.outbound.airline === pkg.inbound.airline ? pkg.outbound.airline : `${pkg.outbound.airline} + ${pkg.inbound.airline}`;
+  return `${airline} · ${direct ? 'direct' : '1 stop'}`;
+};
+
+/** The three headline options: just the essentials. Everything else lives in the trip view. */
+export function PackageCard({ pkg, onOpen, onSave, saved }: { pkg: TripPackage; onOpen: () => void; onSave: () => void; saved: boolean }) {
   const l = pkg.stay.listing;
   return (
     <article className="card pkg">
-      <button type="button" className="open-combo" onClick={onOpen} aria-label={`Open ${pkg.label}: ${l.name}`}>
+      <button type="button" className="open-combo" onClick={onOpen} aria-label={`View ${pkg.label}: ${l.name}`}>
         <div className="media">
           <SmartImage src={listingImage(l)} alt={`${KIND_LABEL[l.kind]} in ${l.area}`} kind={l.kind} />
           <span className={`tag ${pkg.tone}`}>{pkg.label}</span>
-          <div className="price-tag">
-            <strong>{money(pkg.costs.perPersonBookable)}</strong>
-            <span className="tiny">per person · {money(pkg.costs.bookableTotal)} total</span>
+        </div>
+        <div className="body">
+          <div className="pkg-price">
+            <strong>{money(pkg.costs.perPersonBookable)}</strong> <span className="muted small">per person</span>
+            {pkg.withinBudget === false && <span className="badge warn">Over budget</span>}
+          </div>
+          <div className="pkg-lines">
+            <div>
+              <span aria-hidden>📅</span> {formatDate(pkg.startDate)} – {formatDate(pkg.endDate)} · {pkg.nights} nights
+            </div>
+            <div>
+              <span aria-hidden>🏠</span> {stayShort(pkg)}
+            </div>
+            <div>
+              <span aria-hidden>✈️</span> {flightShort(pkg)}
+            </div>
           </div>
         </div>
       </button>
-      <div className="body">
-        <div>
-          <div className="row between" style={{ alignItems: 'flex-start' }}>
-            <h3 style={{ fontSize: '1.05rem' }}>
-              <button type="button" className="link-btn" style={{ color: 'inherit', textDecoration: 'none', textAlign: 'left' }} onClick={onOpen}>
-                {l.name}
-              </button>
-            </h3>
-            {pkg.withinBudget === true && <span className="badge good">In budget</span>}
-            {pkg.withinBudget === false && <span className="badge warn">Over budget</span>}
-          </div>
-          <div className="muted small">
-            {KIND_LABEL[l.kind]} in {l.area} · ⭐ {l.rating.toFixed(2)} ({l.reviews})
-            {l.stars ? ` · ${'★'.repeat(l.stars)}` : ''}
-          </div>
-        </div>
-        <div className="row">
-          <span className="badge primary">📅 {formatRange(pkg.startDate, pkg.endDate)}</span>
-          <span className="badge">🌙 {pkg.nights} nights</span>
-          <span className="badge">☀️ ~{pkg.temp}°C</span>
-          {pkg.holiday && <span className="badge warn">🏫 {pkg.holiday}</span>}
-        </div>
-        {pkg.blurb && <p className="small muted" style={{ margin: 0 }}>{pkg.blurb}</p>}
-        <div className="row small">
-          <span className="badge">{unitLabel(pkg.stay)}</span>
-          {l.pool === 'private' && <span className="badge good">🏊 Private pool</span>}
-          {l.pool === 'shared' && <span className="badge primary">🏊 Pool</span>}
-          {l.boardBasis === 'all-inclusive' && <span className="badge accent">🍹 All-inclusive</span>}
-          {l.boardBasis === 'breakfast' && <span className="badge">🥐 Breakfast</span>}
-          {dest.tags.includes('beach') && <span className="badge">🏖️ {l.beachKm} km</span>}
-        </div>
-        <div className="stack" style={{ gap: 8 }}>
-          <FlightLine f={pkg.outbound} />
-          <FlightLine f={pkg.inbound} />
-        </div>
-        <details>
-          <summary>See full price breakdown</summary>
-          <CostTable c={pkg.costs} />
-          <p className="tiny muted" style={{ margin: '6px 0 0' }}>
-            Hand luggage only{pkg.extras.bagsPerPerson ? ' + hold bags' : ''}. Taxi transfers both ways. Tap Customise to change anything.
-          </p>
-        </details>
-        <div className="links">
-          <Ext href={flightDayGoogleLink(pkg.outbound, pkg.travellers)}>Flight out</Ext>
-          <Ext href={flightDayGoogleLink(pkg.inbound, pkg.travellers)}>Flight back</Ext>
-          <Ext href={stayLink(dest, pkg.stay, pkg.startDate, pkg.endDate, pkg.travellers)}>Stays · {l.source}</Ext>
-        </div>
-        <button className="btn block accent" type="button" onClick={onOpen}>
-          Open trip · find the real ones ›
+      <div className="pkg-actions">
+        <button className="btn primary" type="button" onClick={onOpen}>
+          View trip
         </button>
-        <div className="row" style={{ marginTop: 'auto' }}>
-          <button className="btn primary" style={{ flex: 1 }} type="button" onClick={onSave} disabled={saved}>
-            {saved ? '✓ Saved' : '♡ Save trip'}
-          </button>
-          <button className="btn" style={{ flex: 1 }} type="button" onClick={onCustomise}>
-            ✏️ Customise
-          </button>
-        </div>
+        <button className="btn" type="button" onClick={onSave} disabled={saved} aria-label={saved ? 'Saved' : 'Save trip'}>
+          {saved ? '✓' : '♡'}
+        </button>
       </div>
     </article>
+  );
+}
+
+/** One-line idea in the "more combinations" list. */
+export function ComboRow({ pkg, onOpen }: { pkg: TripPackage; onOpen: () => void }) {
+  const l = pkg.stay.listing;
+  return (
+    <button type="button" className="combo-row" onClick={onOpen}>
+      <span className="thumb">
+        <SmartImage src={listingImage(l, 160, 160)} alt="" kind={l.kind} />
+      </span>
+      <span className="text">
+        <strong>{pkg.label}</strong>
+        <span className="muted small">
+          {stayShort(pkg)} · {formatDate(pkg.startDate, { weekday: false })}
+        </span>
+      </span>
+      <span className="price">
+        <strong>{money(pkg.costs.perPersonBookable)}</strong>
+        <span className="tiny muted">pp</span>
+      </span>
+      <span className="chev" aria-hidden>
+        ›
+      </span>
+    </button>
   );
 }

@@ -4,6 +4,7 @@ import { destById } from '../data/destinations';
 import { addDays, dayOfWeek, diffDays, schoolHolidayOn, todayISO } from './dates';
 import { hashString, rng } from './random';
 import { seasonFactor } from './season';
+import { AMERICAS } from './geo';
 
 const DOW_OUT = [1.05, 0.95, 0.85, 0.88, 1.0, 1.15, 1.12];
 const DOW_BACK = [1.15, 1.0, 0.85, 0.88, 0.95, 1.05, 1.1];
@@ -26,6 +27,30 @@ export function setPricingToday(iso: ISODate) {
 }
 
 const cache = new Map<string, FlightOption[]>();
+
+const LONGHAUL_DIRECT = new Set(['ba', 'virgin', 'united', 'american', 'delta', 'emirates', 'qatar', 'tui']);
+/** Gulf and US carriers only fly nonstop from the UK to their own countries. */
+function servesNonstop(airline: string, dest: Destination): boolean {
+  const usa = dest.country === 'USA';
+  switch (airline) {
+    case 'emirates':
+      return dest.airport === 'DXB';
+    case 'qatar':
+      return dest.airport === 'DOH';
+    case 'united':
+    case 'american':
+    case 'delta':
+      return usa;
+    case 'virgin':
+      return !dest.geo || AMERICAS.has(dest.geo.cc);
+    case 'tui':
+      return !dest.geo;
+    default:
+      return true;
+  }
+}
+
+const LONGHAUL_AIRPORTS = new Set(['LHR', 'LGW', 'MAN', 'EDI', 'GLA', 'BHX', 'DUB', 'NCL', 'BRS']);
 
 const pad = (n: number) => String(n).padStart(2, '0');
 const hhmm = (mins: number) => `${pad(Math.floor(((mins % 1440) + 1440) % 1440 / 60))}:${pad(((mins % 60) + 60) % 60)}`;
@@ -82,14 +107,18 @@ export function getFlights(originCode: string, destId: string, date: ISODate, di
   const holiday = schoolHolidayOn(date) ? 1.35 : 1;
   const lead = leadFactor(date);
 
+  // Long-haul nonstops only come from the big UK airports on long-haul carriers; the rest connect.
+  const canFlyDirect = (airport: string, airline: string) =>
+    !isLongHaul || (LONGHAUL_DIRECT.has(airline) && LONGHAUL_AIRPORTS.has(airport) && servesNonstop(airline, dest));
   const pairs = originAirlinePairs(origin).filter(
-    (p) => dest.airlines.includes(p.airline) && routeExists(p.airport, p.airline, dest),
+    (p) => dest.airlines.includes(p.airline) && canFlyDirect(p.airport, p.airline) && routeExists(p.airport, p.airline, dest),
   );
   // Always guarantee at least one direct carrier if the destination is served from that origin at all.
   if (pairs.length === 0) {
-    const fallback = originAirlinePairs(origin).find((p) => dest.airlines.includes(p.airline));
+    const fallback = originAirlinePairs(origin).find((p) => dest.airlines.includes(p.airline) && canFlyDirect(p.airport, p.airline));
     if (fallback) pairs.push(fallback);
   }
+  const connectVia = dest.geo?.connectVia;
 
   const make = (airport: string, airlineKey: string, stops: number, via?: { via: string; extra: number }) => {
     const airline = AIRLINES[airlineKey];
@@ -128,14 +157,20 @@ export function getFlights(originCode: string, destId: string, date: ISODate, di
     }
   };
 
-  if (!ultra) {
+  if (connectVia) {
+    // Small airport (e.g. Wilmington, Delaware): fly into the nearest big hub and connect.
+    for (const p of pairs.length ? pairs : originAirlinePairs(origin).filter((x) => dest.airlines.includes(x.airline))) {
+      if (options.length >= 5) break;
+      make(p.airport, p.airline, 1, { via: connectVia.city, extra: r.range(1.5, 4) });
+    }
+  } else if (!ultra) {
     for (const p of pairs) {
       if (operatesOn(p.airport, p.airline, dest, date)) make(p.airport, p.airline, 0);
     }
   }
 
   // Connecting options: always for long-haul, sometimes on short-haul for extra choice.
-  const wantConnections = options.length < 2 || isLongHaul || r.chance(0.4);
+  const wantConnections = !connectVia && (options.length < 2 || isLongHaul || r.chance(0.4));
   if (wantConnections) {
     for (const hub of HUBS) {
       if (hub.viaCode === dest.airport) continue;

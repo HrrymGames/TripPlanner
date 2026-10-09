@@ -4,7 +4,7 @@ import { addDays, diffDays, monthOf, schoolHolidayOn } from './dates';
 import { cheapestPair } from './flights';
 import { DEFAULT_FILTERS, searchStays } from './stays';
 import { avgTemp, staySeasonFactor } from './season';
-import { computeCosts, DEFAULT_EXTRAS } from './costs';
+import { computeCosts, DEFAULT_EXTRAS, transferCost } from './costs';
 
 export interface TripPackage {
   id: string;
@@ -180,9 +180,18 @@ export function makePackage(
 ): TripPackage {
   const dest = destById(args.destId);
   const endDate = addDays(args.startDate, args.nights);
-  const costs = computeCosts({ dest, travellers: args.travellers, nights: args.nights, outbound: args.outbound, inbound: args.inbound, stay: args.stay, extras: args.extras });
+  // Getting from the airport: use whichever is cheaper for this group and stay, taxis or a hire car.
+  let extras = args.extras;
+  if (extras.transfer !== 'none') {
+    const people = args.travellers.adults + args.travellers.children;
+    const taxi = transferCost(dest, people, args.nights, 'taxi', args.stay.listing.area);
+    const car = transferCost(dest, people, args.nights, 'car-hire', args.stay.listing.area);
+    extras = { ...extras, transfer: car < taxi * 0.9 ? 'car-hire' : 'taxi' };
+  }
+  const costs = computeCosts({ dest, travellers: args.travellers, nights: args.nights, outbound: args.outbound, inbound: args.inbound, stay: args.stay, extras });
   return {
     ...args,
+    extras,
     id: `${args.destId}|${args.startDate}|${args.nights}|${args.stay.listing.id}`,
     endDate,
     costs,

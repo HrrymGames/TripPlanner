@@ -1,14 +1,14 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { ParsedRequest } from '../types';
-import { ORIGINS, originByCode } from '../data/airports';
+import { ORIGINS } from '../data/airports';
 import { parseRequest } from '../lib/parse';
 import { cheaperAlternatives, planTrips, type DestinationPlan, type PlanResult, type TripPackage } from '../lib/planner';
-import { addDays, formatDate, formatRange } from '../lib/dates';
-import { money, plural } from '../lib/format';
+import { formatDate } from '../lib/dates';
+import { money } from '../lib/format';
 import { useDestinationImage } from '../lib/images';
 import { KIND_LABEL, AMENITY_LABEL } from '../lib/stays';
 import { safeGet, safeSet } from '../lib/storage';
-import { PackageCard } from './PackageCard';
+import { ComboRow, PackageCard } from './PackageCard';
 import { ComboSheet } from './ComboSheet';
 import type { RealPicks } from '../types';
 
@@ -88,7 +88,7 @@ export function QuickPlan({ onSave, onCustomise, savedPackageIds }: Props) {
     <div className="stack" style={{ gap: 18 }}>
       <section className={`hero-prompt ${result ? 'compact' : ''}`}>
         <h1>Where are we going?</h1>
-        <p>Type it how you'd say it — who, where, when, budget, must-haves. We'll sort flights, places to stay and the total.</p>
+        <p>Who, where, when, budget, must-haves. Any town, region or country works.</p>
         <form
           className="prompt-box"
           onSubmit={(e) => {
@@ -99,7 +99,7 @@ export function QuickPlan({ onSave, onCustomise, savedPackageIds }: Props) {
           <textarea
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="e.g. ten people albufeira next summer a week ish, villa with a pool, £700 each"
+            placeholder="e.g. 10 of us, Delaware, next summer, a week ish, villa with a pool, £700 each"
             aria-label="Describe your trip"
             enterKeyHint="search"
             onKeyDown={(e) => {
@@ -158,10 +158,10 @@ export function QuickPlan({ onSave, onCustomise, savedPackageIds }: Props) {
             </div>
           )}
           {result.plans.map((plan) => (
-            <PlanSection key={plan.dest.id} plan={plan} onSave={onSave} onCustomise={onCustomise} onOpen={setOpenPkg} savedIds={savedPackageIds} multi={result.plans.length > 1} />
+            <PlanSection key={plan.dest.id} plan={plan} onSave={onSave} onOpen={setOpenPkg} savedIds={savedPackageIds} multi={result.plans.length > 1} />
           ))}
           {alternatives?.map((plan) => (
-            <PlanSection key={`alt-${plan.dest.id}`} plan={plan} onSave={onSave} onCustomise={onCustomise} onOpen={setOpenPkg} savedIds={savedPackageIds} multi altTitle="Cheaper idea" />
+            <PlanSection key={`alt-${plan.dest.id}`} plan={plan} onSave={onSave} onOpen={setOpenPkg} savedIds={savedPackageIds} multi altTitle="Cheaper idea" />
           ))}
           {openPkg && (
             <ComboSheet
@@ -209,7 +209,7 @@ export function QuickPlan({ onSave, onCustomise, savedPackageIds }: Props) {
 function Understood({ p, onToggleBudget, origin, onOrigin }: { p: ParsedRequest; onToggleBudget: () => void; origin: string; onOrigin: (c: string) => void }) {
   const people = p.travellers.adults + p.travellers.children;
   const chips: string[] = [];
-  chips.push(`👥 ${plural(people, 'person', 'people')}${p.travellers.children ? ` (${plural(p.travellers.children, 'child', 'children')})` : ''}`);
+  chips.push(`👥 ${people}${p.travellers.children ? ` (${p.travellers.children} kids)` : ''}`);
   chips.push(`📅 ${p.fixedStart ? formatDate(p.fixedStart, { year: true }) : p.window.label}`);
   chips.push(`🌙 ${p.nights.label}`);
   if (p.stay.kinds.length) chips.push(`🏠 ${p.stay.kinds.map((k) => KIND_LABEL[k]).join(' / ')}`);
@@ -225,42 +225,30 @@ function Understood({ p, onToggleBudget, origin, onOrigin }: { p: ParsedRequest;
   if (p.priority === 'luxury') chips.push('💎 Luxury');
   if (p.vibeTags.length) chips.push(`✨ ${p.vibeTags.join(', ')}`);
   return (
-    <section className="card pad stack" style={{ gap: 10 }}>
-      <div className="row between">
-        <h2 style={{ fontSize: '1rem' }}>Here's what I understood</h2>
-        <label className="row small" style={{ gap: 6 }}>
-          <span className="muted">Flying from</span>
-          <select className="select" style={{ minHeight: 36, padding: '4px 30px 4px 10px', width: 'auto' }} value={origin} onChange={(e) => onOrigin(e.target.value)}>
+    <section className="stack" style={{ gap: 6 }} aria-label="What I understood">
+      <div className="scroll-x understood">
+        <label className="chip origin-chip">
+          <span aria-hidden>✈️</span>
+          <select aria-label="Flying from" value={origin} onChange={(e) => onOrigin(e.target.value)}>
             {ORIGINS.map((o) => (
               <option key={o.code} value={o.code}>
-                {o.name}
+                From {o.name}
               </option>
             ))}
           </select>
         </label>
-      </div>
-      <div className="understood">
         {chips.map((c) => (
           <span key={c} className="chip static">
             {c}
           </span>
         ))}
         {p.budget && (
-          <button type="button" className="chip" aria-pressed onClick={onToggleBudget} title="Tap to switch between per person and total">
-            💷 {money(p.budget.amount)} {p.budget.per === 'person' ? 'per person' : 'total'} ⇄
+          <button type="button" className="chip" aria-pressed onClick={onToggleBudget} title="Switch between per person and total">
+            💷 {money(p.budget.amount)} {p.budget.per === 'person' ? 'pp' : 'total'} ⇄
           </button>
         )}
       </div>
-      {p.notes.length > 0 && (
-        <ul className="small muted" style={{ margin: 0, paddingLeft: 18 }}>
-          {p.notes.map((n) => (
-            <li key={n}>{n}</li>
-          ))}
-        </ul>
-      )}
-      <p className="tiny muted" style={{ margin: 0 }}>
-        Flying from {originByCode(origin).name}. Not quite right? Just add it to your message, e.g. “from Leeds”, “4 adults 2 kids”, “£500 each”, “5 nights”.
-      </p>
+      {p.notes.length > 0 && <p className="tiny muted" style={{ margin: 0 }}>{p.notes.join(' ')}</p>}
     </section>
   );
 }
@@ -268,7 +256,6 @@ function Understood({ p, onToggleBudget, origin, onOrigin }: { p: ParsedRequest;
 function PlanSection({
   plan,
   onSave,
-  onCustomise,
   onOpen,
   savedIds,
   multi,
@@ -276,76 +263,57 @@ function PlanSection({
 }: {
   plan: DestinationPlan;
   onSave: (p: TripPackage) => void;
-  onCustomise: (p: TripPackage) => void;
   onOpen: (p: TripPackage) => void;
   savedIds: Set<string>;
   multi: boolean;
   altTitle?: string;
 }) {
   const img = useDestinationImage(plan.dest);
-  const [showAll, setShowAll] = useState(false);
-  const more = useMemo(() => (showAll ? plan.more : plan.more.slice(0, 3)), [plan.more, showAll]);
   return (
-    <section className="stack" style={{ gap: 14 }}>
+    <section className="stack" style={{ gap: 12 }}>
       <div className="dest-hero">
         {img && <img src={img} alt={plan.dest.name} />}
         <div className="content">
           {(multi || altTitle) && <span className="badge accent">{altTitle ?? plan.matchReason ?? 'Good match'}</span>}
           <h2>{plan.dest.name}</h2>
           <div className="small" style={{ opacity: 0.92 }}>
-            {plan.dest.country} · ✈️ {plan.dest.flightHours}h to {plan.dest.airportName} · from {money(plan.cheapestPerPerson)} pp
-          </div>
-          <div className="small" style={{ opacity: 0.85, marginTop: 4 }}>
-            {plan.dest.blurb}
+            {plan.dest.geo ? plan.dest.geo.label.split(', ').slice(1).join(', ') || plan.dest.country : plan.dest.country} · ✈️ {plan.dest.airportName} ({plan.dest.airport})
+            {plan.dest.geo ? `, ${plan.dest.geo.airportKm} km away` : ''}
           </div>
         </div>
       </div>
 
       {plan.bestDates.length > 0 && (
-        <div>
-          <div className="small strong" style={{ marginBottom: 6 }}>
-            🗓️ Best dates (cheapest return flights per person)
-          </div>
-          <div className="scroll-x">
-            {plan.bestDates.map((d, i) => (
-              <div key={d.start} className="date-idea">
-                <div className="strong small">{formatRange(d.start, addDays(d.start, d.nights))}</div>
-                <div className="tiny muted">
-                  {d.nights} nights {i === 0 ? '· ★ best' : ''}
-                </div>
-                <div className="strong" style={{ color: 'var(--cheap)' }}>
-                  {money(d.flightsPerPerson)} pp
-                </div>
-              </div>
-            ))}
-          </div>
+        <div className="scroll-x" aria-label="Cheapest flight dates">
+          <span className="date-label">Cheapest flights</span>
+          {plan.bestDates.map((d, i) => (
+            <span key={d.start} className="date-chip">
+              {i === 0 && <span aria-hidden>★ </span>}
+              {formatDate(d.start, { weekday: false })} · {d.nights}n · <strong>{money(d.flightsPerPerson)}</strong> pp
+            </span>
+          ))}
         </div>
       )}
 
-      {plan.relaxed.length > 0 && <div className="notice">Nothing matched every filter, so I loosened: {plan.relaxed.join(', ')}.</div>}
+      {plan.relaxed.length > 0 && <div className="notice small">Loosened to find matches: {plan.relaxed.join(', ')}.</div>}
 
       <div className="cards-swipe">
         {plan.headline.map((pkg) => (
-          <PackageCard key={pkg.id + pkg.label} pkg={pkg} onSave={() => onSave(pkg)} onCustomise={() => onCustomise(pkg)} onOpen={() => onOpen(pkg)} saved={savedIds.has(pkg.id)} />
+          <PackageCard key={pkg.id + pkg.label} pkg={pkg} onSave={() => onSave(pkg)} onOpen={() => onOpen(pkg)} saved={savedIds.has(pkg.id)} />
         ))}
       </div>
 
       {plan.more.length > 0 && (
-        <>
-          <h3 className="section-title" style={{ fontSize: '1.05rem' }}>
-            More combinations for {plan.dest.name.split(' ')[0]}
-          </h3>
-          <div className="grid three">
-            {more.map((pkg) => (
-              <PackageCard key={pkg.id + pkg.label} pkg={pkg} onSave={() => onSave(pkg)} onCustomise={() => onCustomise(pkg)} onOpen={() => onOpen(pkg)} saved={savedIds.has(pkg.id)} />
+        <details className="more-ideas">
+          <summary>
+            {plan.more.length} more ideas for {plan.dest.name.split(/[ (,]/)[0]}
+          </summary>
+          <div className="combo-list">
+            {plan.more.map((pkg) => (
+              <ComboRow key={pkg.id + pkg.label} pkg={pkg} onOpen={() => onOpen(pkg)} />
             ))}
           </div>
-          {plan.more.length > 3 && (
-            <button className="btn block" type="button" onClick={() => setShowAll((s) => !s)}>
-              {showAll ? 'Show fewer' : `Show ${plan.more.length - 3} more combinations`}
-            </button>
-          )}
-        </>
+        </details>
       )}
     </section>
   );

@@ -1,3 +1,4 @@
+import { geoDestination } from '../lib/geo';
 import type { Destination } from '../types';
 
 type N = Destination['nightly'];
@@ -550,4 +551,5 @@ export const REGION_ALIASES: Record<string, string[]> = {
   europe: ['albufeira', 'barcelona', 'mallorca', 'crete', 'rome', 'dubrovnik', 'prague'],
 };
 
-export const destById = (id: string): Destination => DESTINATIONS.find((d) => d.id === id) ?? DESTINATIONS[0];
+export const destById = (id: string): Destination =>
+  DESTINATIONS.find((d) => d.id === id) ?? (id.startsWith('geo') ? geoDestination(id) : null) ?? DESTINATIONS[0];

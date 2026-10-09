@@ -52,24 +52,27 @@ export const AIRLINES: Record<string, AirlineInfo> = {
   swiss: { name: 'SWISS', code: 'LX', lowCost: false, factor: 1.45, bag: 0 },
   croatia: { name: 'Croatia Airlines', code: 'OU', lowCost: false, factor: 1.3, bag: 0 },
   airmalta: { name: 'KM Malta Airlines', code: 'KM', lowCost: false, factor: 1.2, bag: 0 },
+  united: { name: 'United', code: 'UA', lowCost: false, factor: 1.1, bag: 0, longHaul: true },
+  american: { name: 'American Airlines', code: 'AA', lowCost: false, factor: 1.12, bag: 0, longHaul: true },
+  delta: { name: 'Delta', code: 'DL', lowCost: false, factor: 1.12, bag: 0, longHaul: true },
 };
 
 /** Which airlines fly from each UK/IE origin (approximate, used to keep generated options plausible). */
 export const ORIGIN_AIRLINES: Record<string, string[]> = {
-  LHR: ['ba', 'aerlingus', 'tap', 'klm', 'virgin', 'emirates', 'qatar', 'icelandair', 'turkish', 'swiss', 'croatia', 'airmalta', 'vueling'],
-  LGW: ['easyjet', 'ba', 'tui', 'wizz', 'vueling', 'tap', 'emirates', 'qatar', 'turkish', 'icelandair', 'jet2', 'airmalta', 'virgin'],
+  LHR: ['ba', 'united', 'american', 'delta', 'aerlingus', 'tap', 'klm', 'virgin', 'emirates', 'qatar', 'icelandair', 'turkish', 'swiss', 'croatia', 'airmalta', 'vueling'],
+  LGW: ['easyjet', 'ba', 'tui', 'wizz', 'vueling', 'tap', 'emirates', 'qatar', 'turkish', 'icelandair', 'jet2', 'airmalta', 'virgin', 'delta'],
   STN: ['ryanair', 'jet2', 'easyjet', 'pegasus'],
   LTN: ['easyjet', 'wizz', 'ryanair', 'tui', 'jet2'],
-  MAN: ['jet2', 'ryanair', 'easyjet', 'tui', 'ba', 'emirates', 'qatar', 'virgin', 'klm', 'aerlingus', 'turkish', 'pegasus', 'icelandair'],
+  MAN: ['jet2', 'ryanair', 'easyjet', 'tui', 'ba', 'emirates', 'qatar', 'virgin', 'american', 'united', 'klm', 'aerlingus', 'turkish', 'pegasus', 'icelandair'],
   LBA: ['jet2', 'ryanair', 'tui', 'klm', 'aerlingus'],
   BHX: ['jet2', 'ryanair', 'easyjet', 'tui', 'emirates', 'klm', 'turkish', 'aerlingus', 'vueling'],
   BRS: ['easyjet', 'ryanair', 'tui', 'jet2', 'klm', 'aerlingus'],
   EMA: ['jet2', 'ryanair', 'tui'],
   NCL: ['jet2', 'easyjet', 'ryanair', 'tui', 'emirates', 'klm', 'aerlingus'],
   LPL: ['easyjet', 'ryanair', 'jet2', 'wizz'],
-  EDI: ['easyjet', 'ryanair', 'jet2', 'tui', 'ba', 'klm', 'emirates', 'qatar', 'turkish', 'icelandair', 'aerlingus'],
+  EDI: ['easyjet', 'ryanair', 'jet2', 'tui', 'ba', 'klm', 'emirates', 'qatar', 'turkish', 'icelandair', 'aerlingus', 'united', 'delta'],
   GLA: ['jet2', 'easyjet', 'ryanair', 'tui', 'ba', 'emirates', 'klm', 'icelandair'],
   BFS: ['easyjet', 'jet2', 'ryanair', 'tui'],
   CWL: ['tui', 'ryanair', 'klm', 'vueling', 'qatar'],
-  DUB: ['ryanair', 'aerlingus', 'emirates', 'qatar', 'tui', 'klm', 'turkish', 'icelandair'],
+  DUB: ['ryanair', 'aerlingus', 'emirates', 'qatar', 'tui', 'klm', 'turkish', 'icelandair', 'united', 'american', 'delta'],
 };

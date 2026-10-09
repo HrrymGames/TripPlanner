@@ -7,10 +7,11 @@ import { duration, money, moneyExact, plural } from '../lib/format';
 import { listingImage, useDestinationImage } from '../lib/images';
 import { airbnbLink, bookingLink, carHireLink, googleFlightsLink, kayakLink, skyscannerLink, stayLink, vrboLink, flightDayGoogleLink, insuranceLink, transferLink } from '../lib/links';
 import { AMENITY_LABEL, DEFAULT_FILTERS, KIND_LABEL, searchStays, unitLabel } from '../lib/stays';
-import { insuranceCost, transferCost } from '../lib/costs';
+import { insuranceCost, transferCost, transferQuote } from '../lib/costs';
 import { avgTemp } from '../lib/season';
 import type { PlannerDraft, ResolvedDraft } from '../lib/trips';
 import { PriceCalendar } from './PriceCalendar';
+import { findPlaces } from '../lib/geo';
 import { RealPicksEditor } from './RealPicks';
 import { Chip, CostTable, Ext, Segmented, SmartImage, Stepper } from './ui';
 
@@ -36,12 +37,14 @@ export function StepPlanner({ draft, setDraft, resolved, onSave, onReset }: Prop
   const people = draft.travellers.adults + draft.travellers.children;
   const img = useDestinationImage(dest);
   const [showAllStays, setShowAllStays] = useState(false);
-  const [showFilters, setShowFilters] = useState(true);
+  const [showFilters, setShowFilters] = useState(false);
   const month = draft.viewMonth ?? (draft.startDate ?? addDays(todayISO(), 30)).slice(0, 7);
   const { outbound, inbound, outOptions, backOptions, endDate, stay, costs } = resolved;
 
   const update = (patch: Partial<PlannerDraft>) => setDraft((d) => ({ ...d, ...patch }));
   const setFilters = (patch: Partial<StayFilters>) => setDraft((d) => ({ ...d, filters: { ...d.filters, ...patch } }));
+
+  const transfer = transferQuote(dest, people, stay?.listing.area);
 
   const stays = useMemo(
     () => (draft.startDate ? searchStays(draft.destId, draft.startDate, draft.nights, people, draft.filters) : []),
@@ -91,13 +94,18 @@ export function StepPlanner({ draft, setDraft, resolved, onSave, onReset }: Prop
             </button>
           </div>
           <div className="grid two">
+            <PlaceSearch
+              current={dest.geo?.label}
+              onPick={(id) => update({ destId: id, stayId: undefined, outboundId: undefined, inboundId: undefined, picks: undefined, filters: { ...draft.filters, area: undefined } })}
+            />
             <label className="field">
-              <span>Destination</span>
+              <span>Or pick a popular one</span>
               <select
                 className="select"
-                value={draft.destId}
-                onChange={(e) => update({ destId: e.target.value, stayId: undefined, outboundId: undefined, inboundId: undefined, filters: { ...draft.filters, area: undefined } })}
+                value={dest.geo ? '' : draft.destId}
+                onChange={(e) => e.target.value && update({ destId: e.target.value, stayId: undefined, outboundId: undefined, inboundId: undefined, filters: { ...draft.filters, area: undefined } })}
               >
+                {dest.geo && <option value="">{dest.geo.label}</option>}
                 {countries.map((c) => (
                   <optgroup key={c} label={c}>
                     {DESTINATIONS.filter((d) => d.country === c).map((d) => (
@@ -376,7 +384,7 @@ export function StepPlanner({ draft, setDraft, resolved, onSave, onReset }: Prop
                         {l.boardBasis === 'breakfast' && <span className="badge">🥐 Breakfast</span>}
                         <span className="badge">🏖️ {l.beachKm} km · 📍 {l.centreKm} km</span>
                       </div>
-                      <div className="tiny muted">{l.amenities.map((a) => AMENITY_LABEL[a]).join(' · ')}</div>
+                      <div className="tiny muted amen">{l.amenities.map((a) => AMENITY_LABEL[a]).join(' · ')}</div>
                       {q.fees > 0 && <div className="tiny muted">Includes {money(q.fees)} cleaning/service fees</div>}
                       <div className="row">
                         <button className={`btn ${selected ? 'primary' : ''}`} style={{ flex: 1 }} type="button" onClick={() => update({ stayId: selected ? undefined : l.id, picks: draft.picks ? { ...draft.picks, stayUrl: undefined, stayName: undefined, stayPrice: undefined } : undefined })}>
@@ -409,12 +417,16 @@ export function StepPlanner({ draft, setDraft, resolved, onSave, onReset }: Prop
               <Segmented
                 options={[
                   { value: 'none', label: 'Sort myself' },
-                  { value: 'taxi', label: `🚕 Taxi ${money(transferCost(dest, people, draft.nights, 'taxi'))}` },
-                  { value: 'car-hire', label: `🚗 Car hire ${money(transferCost(dest, people, draft.nights, 'car-hire'))}` },
+                  { value: 'taxi', label: `🚕 ${transfer.vehicleLabel} ${money(transfer.total)}` },
+                  { value: 'car-hire', label: `🚗 Car hire ${money(transferCost(dest, people, draft.nights, 'car-hire', stay?.listing.area))}` },
                 ]}
                 value={draft.extras.transfer}
                 onChange={(v) => update({ extras: { ...draft.extras, transfer: v } })}
               />
+              <div className="muted small">
+                {dest.airportName} airport ⇄ {stay?.listing.area ?? dest.name}
+                {transfer.km ? ` · ${transfer.km} km, about ${duration(transfer.mins!)}` : ''} · taxi {money(transfer.perWay)} each way
+              </div>
               <div className="links">
                 {draft.extras.transfer === 'car-hire' && draft.startDate && endDate && <Ext href={carHireLink(dest, draft.startDate, endDate)}>Compare car hire</Ext>}
                 {draft.extras.transfer === 'taxi' && <Ext href={transferLink(dest)}>Find transfers</Ext>}
@@ -575,6 +587,52 @@ function SummaryBody({ draft, resolved, compact }: { draft: PlannerDraft; resolv
         <div className="small muted">🏠 No stay chosen yet</div>
       )}
       <CostTable c={costs} bagsLabel={bagsLabel} />
+    </div>
+  );
+}
+
+function PlaceSearch({ current, onPick }: { current?: string; onPick: (id: string) => void }) {
+  const [q, setQ] = useState('');
+  const results = useMemo(() => findPlaces(q), [q]);
+  return (
+    <div className="field" style={{ gridColumn: '1 / -1' }}>
+      <label htmlFor="place-search">
+        <span className="muted small strong">Search any town, region or country</span>
+      </label>
+      <input
+        id="place-search"
+        className="input"
+        type="search"
+        enterKeyHint="search"
+        autoComplete="off"
+        placeholder={current ?? 'e.g. Wilmington, Delaware, Rehoboth Beach, Tokyo'}
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+      />
+      {results.length > 0 && (
+        <div className="combo-list" role="listbox">
+          {results.map((r) => (
+            <button
+              key={r.id}
+              type="button"
+              className="combo-row"
+              style={{ gridTemplateColumns: 'minmax(0, 1fr) 14px', minHeight: 48 }}
+              onClick={() => {
+                onPick(r.id);
+                setQ('');
+              }}
+            >
+              <span className="text">
+                <strong>{r.label}</strong>
+                <span className="muted tiny">{r.kind === 'city' ? 'Town' : r.kind === 'region' ? 'Region' : 'Country'}</span>
+              </span>
+              <span className="chev" aria-hidden>
+                ›
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

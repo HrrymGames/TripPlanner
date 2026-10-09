@@ -1,6 +1,7 @@
 import type { Amenity, ISODate, ParsedRequest, StayKind, StaySource, Tag } from '../types';
-import { DESTINATIONS, REGION_ALIASES } from '../data/destinations';
-import { ORIGINS } from '../data/airports';
+import { DESTINATIONS, REGION_ALIASES, destById } from '../data/destinations';
+import { ORIGINS, originByCode } from '../data/airports';
+import { norm, searchPlaces } from './geo';
 import { addDays, easterSunday, lastDayOfMonth, makeISO, MONTHS, monthOf, todayISO, yearOf, dayOfWeek, maxISO, schoolHolidays } from './dates';
 
 const NUMBER_WORDS: Record<string, number> = {
@@ -313,13 +314,34 @@ const AMBIGUOUS: Record<string, RegExp> = {
   ski: /\bski\b/,
 };
 
-function parseDestinations(text: string): { ids: string[]; regionUsed?: string } {
+/** One typo allowed in longer place names ("albufiera" → Albufeira). */
+function nearlyEqual(a: string, b: string): boolean {
+  if (a === b) return true;
+  if (Math.abs(a.length - b.length) > 1 || a.length < 6) return false;
+  let i = 0;
+  while (i < a.length && a[i] === b[i]) i++;
+  const rest = (x: string, n: number) => x.slice(i + n);
+  return (
+    rest(a, 1) === rest(b, 1) || // substitution
+    rest(a, 1) === rest(b, 0) || // extra letter
+    rest(a, 0) === rest(b, 1) || // missing letter
+    (a[i] === b[i + 1] && a[i + 1] === b[i] && rest(a, 2) === rest(b, 2)) // swapped letters
+  );
+}
+
+/** Curated countries with hand-picked destinations: better than a generic country lookup. */
+const CURATED_COUNTRIES: Record<string, string> = { PT: 'portugal', ES: 'spain', GR: 'greece', IT: 'italy', FR: 'france', TR: 'turkey', US: 'usa' };
+
+function parseDestinations(text: string, excludeOrigin: string[] = []): { ids: string[]; regionUsed?: string; labels: string[] } {
   const ids: string[] = [];
+  const labels: string[] = [];
   let regionUsed: string | undefined;
+  const tokens = text.split(/[^a-zà-ÿ']+/).filter((w) => w.length >= 6);
   for (const d of DESTINATIONS) {
     for (const alias of d.aliases) {
       const re = AMBIGUOUS[alias] ?? new RegExp(`\\b${alias.replace(/[.*+?^${}()|[\]\\']/g, (c) => (c === "'" ? "'?" : `\\${c}`))}\\b`);
-      if (re.test(text)) {
+      const typo = !alias.includes(' ') && alias.length >= 6 && tokens.some((t) => nearlyEqual(t, alias));
+      if (re.test(text) || typo) {
         if (alias === 'ski' && d.id !== 'alps') continue;
         if (!ids.includes(d.id)) ids.push(d.id);
         break;
@@ -330,6 +352,30 @@ function parseDestinations(text: string): { ids: string[]; regionUsed?: string }
   if (ids.length > 1 && ids.includes('alps') && !/\b(alps|chamonix|morzine|meribel|méribel|val thorens|geneva)\b/.test(text)) {
     ids.splice(ids.indexOf('alps'), 1);
   }
+
+  // Anywhere else in the world: towns, US states, regions and countries from the gazetteer.
+  const curatedWords = new Set(DESTINATIONS.flatMap((d) => [norm(d.name), ...d.aliases.map(norm)]));
+  for (const m of searchPlaces(text, { exclude: excludeOrigin })) {
+    const phrase = norm(m.label.split(',')[0]);
+    if (curatedWords.has(phrase) || ids.some((id) => norm(destById(id).name).includes(phrase))) continue;
+    if (m.kind === 'country') {
+      const cc = m.id.split(':')[1];
+      if (CURATED_COUNTRIES[cc] && !ids.length) {
+        regionUsed = CURATED_COUNTRIES[cc];
+        ids.push(...REGION_ALIASES[CURATED_COUNTRIES[cc]].filter((id) => !ids.includes(id)));
+        continue;
+      }
+      if (CURATED_COUNTRIES[cc]) continue;
+    }
+    if (ids.length >= 6) break;
+    ids.push(m.id);
+    labels.push(m.label);
+  }
+
+  // "lake tahoe ski trip": the generic ski word picked the Alps, but a real place was named.
+  const skiOnly = !/\b(alps|chamonix|morzine|meribel|méribel|val thorens|geneva)\b/.test(text);
+  if (ids.includes('alps') && skiOnly && ids.some((id) => id.startsWith('geo'))) ids.splice(ids.indexOf('alps'), 1);
+
   if (!ids.length) {
     for (const [region, list] of Object.entries(REGION_ALIASES)) {
       if (new RegExp(`\\b${region}\\b`).test(text)) {
@@ -339,7 +385,7 @@ function parseDestinations(text: string): { ids: string[]; regionUsed?: string }
       }
     }
   }
-  return { ids, regionUsed };
+  return { ids, regionUsed, labels };
 }
 
 function parseOrigin(text: string): string | undefined {
@@ -355,9 +401,10 @@ function parseOrigin(text: string): string | undefined {
     if (o.code === 'LON') continue;
     if (o.aliases.some((a) => a.length === 3 && new RegExp(`\\b${a}\\b`).test(text) && a !== 'man')) return o.code;
   }
-  // A UK city mentioned without "from" ("leeds to albufeira") is almost certainly where they're flying from.
+  // A UK city mentioned without "from" ("leeds to albufeira") is almost certainly where they're flying from,
+  // unless it's clearly the destination ("weekend in edinburgh").
   for (const o of ORIGINS) {
-    if (o.aliases.some((a) => a.length > 3 && !['wales', 'ireland', 'yorkshire'].includes(a) && new RegExp(`\\b${a}\\b`).test(text))) return o.code;
+    if (o.aliases.some((a) => a.length > 3 && !['wales', 'ireland', 'yorkshire'].includes(a) && new RegExp(`\\b${a}\\b`).test(text) && !new RegExp(`\\b(?:to|in|visit|visiting|around)\\s+${a}\\b`).test(text))) return o.code;
   }
   return undefined;
 }
@@ -393,7 +440,8 @@ export function parseRequest(raw: string, now: ISODate = todayISO()): ParsedRequ
   const travellers = { adults: t.adults, children: t.children };
   const people = travellers.adults + travellers.children;
 
-  const dests = parseDestinations(text);
+  const originEarly = parseOrigin(text);
+  const dests = parseDestinations(text, originEarly ? originByCode(originEarly).aliases : []);
   const vibeTags: Tag[] = [];
   let wantsHot = false;
   for (const v of VIBES) {
@@ -445,7 +493,7 @@ export function parseRequest(raw: string, now: ISODate = todayISO()): ParsedRequ
   const amenities: Amenity[] = [];
   for (const a of AMENITY_WORDS) if (a.re.test(text) && !amenities.includes(a.amenity)) amenities.push(a.amenity);
 
-  const originCode = parseOrigin(text);
+  const originCode = originEarly;
   const directOnly = /\b(direct|non[- ]?stop|no (?:stops|layovers|connections))\b/.test(text);
   let bagsPerPerson = 0;
   if (/\b(hold luggage|checked bags?|hold bags?|suitcases?|luggage|check[- ]in bags?|big bags?)\b/.test(text) && !/\b(hand luggage only|carry[- ]on only|no luggage|no bags)\b/.test(text)) bagsPerPerson = 1;
@@ -453,6 +501,7 @@ export function parseRequest(raw: string, now: ISODate = todayISO()): ParsedRequ
 
   if (!dests.ids.length) notes.push(vibeTags.length || wantsHot ? 'No place named — picked destinations that match what you asked for.' : 'No place named — showing popular picks with the best prices.');
   if (dests.regionUsed) notes.push(`"${dests.regionUsed}" covers several places — comparing the best of them.`);
+  for (const label of dests.labels) notes.push(`Found ${label} — flying to the nearest airport with good connections.`);
   if (budget && !budget.explicitPer) notes.push(`Read your budget as ${budget.per === 'person' ? 'per person' : 'for the whole group'} — tap it to switch.`);
 
   return {

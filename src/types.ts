@@ -52,6 +52,19 @@ export interface Destination {
   airlines: string[];
   lang: 'pt' | 'es' | 'it' | 'gr' | 'hr' | 'tr' | 'fr' | 'en' | 'de' | 'nl' | 'cz' | 'pl' | 'hu' | 'ar' | 'id' | 'is' | 'mt';
   blurb: string;
+  /** Set for places found in the world gazetteer rather than the hand-made list. */
+  geo?: {
+    lat: number;
+    lon: number;
+    cc: string;
+    label: string;
+    airportLat: number;
+    airportLon: number;
+    airportKm: number;
+    areaCoords: Record<string, [number, number]>;
+    /** Small airport with no UK flights: connect through this hub. */
+    connectVia?: { code: string; city: string };
+  };
 }
 
 export interface OriginAirport {
